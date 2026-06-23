@@ -25,3 +25,6 @@ uploads/*
 *.sw?
 
 .firebaserc
+.agents\skills
+skills-lock.json
+firebase.json
