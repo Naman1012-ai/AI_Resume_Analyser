@@ -300,6 +300,7 @@ Do not include any preamble, introduction, markdown code block backticks (like \
     const currentModel = attempt === 0 ? OPENROUTER.MODEL_ID : (OPENROUTER.FALLBACK_MODEL_ID || 'openrouter/free');
     try {
       logger.info('AIAnalyzer', `🤖 Requesting ${currentModel} via OpenRouter (Attempt ${attempt + 1}/${maxRetries + 1})...`);
+      console.log("Using OpenRouter model:", currentModel);
       
       const response = await fetchWithTimeout(OPENROUTER.URL, {
         method: 'POST',
@@ -413,6 +414,7 @@ Do not include any preamble, introduction, markdown code block backticks (like \
     const currentModel = attempt === 0 ? OPENROUTER.MODEL_ID : (OPENROUTER.FALLBACK_MODEL_ID || 'openrouter/free');
     try {
       logger.info('AIAnalyzer', `🤖 Requesting ${currentModel} skill gap analysis via OpenRouter (Attempt ${attempt + 1}/${maxRetries + 1})...`);
+      console.log("Using OpenRouter model:", currentModel);
       
       const response = await fetchWithTimeout(OPENROUTER.URL, {
         method: 'POST',
@@ -524,6 +526,7 @@ Do not include any preamble, introduction, markdown code block backticks (like \
     const currentModel = attempt === 0 ? OPENROUTER.MODEL_ID : (OPENROUTER.FALLBACK_MODEL_ID || 'openrouter/free');
     try {
       logger.info('AIAnalyzer', `🤖 Requesting ${currentModel} interview questions via OpenRouter (Attempt ${attempt + 1}/${maxRetries + 1})...`);
+      console.log("Using OpenRouter model:", currentModel);
       
       const response = await fetchWithTimeout(OPENROUTER.URL, {
         method: 'POST',
