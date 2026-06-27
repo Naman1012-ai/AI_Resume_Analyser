@@ -78,9 +78,10 @@ h1, h2, h3, h4, h5 {
 }
 
 .header-container {
-  max-width: 1650px;
+  max-width: 1800px;
+  width: 100%;
   margin: 0 auto;
-  padding: 0.75rem 2rem;
+  padding: 0.75rem clamp(1rem, 3vw, 2.5rem);
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -159,16 +160,16 @@ h1, h2, h3, h4, h5 {
 /* Layout Grid */
 .main-content {
   flex: 1;
-  max-width: 1650px;
+  max-width: 1800px;
   width: 100%;
   margin: 1.5rem auto;
-  padding: 0 2rem;
+  padding: 0 clamp(1rem, 3vw, 2.5rem);
   display: block;
 }
 
 @media (max-width: 1024px) {
   .main-content {
-    grid-template-columns: 1fr;
+    padding: 0 clamp(0.75rem, 2vw, 1.5rem);
   }
 }
 
@@ -849,22 +850,24 @@ h1, h2, h3, h4, h5 {
 .select-wrapper select {
   background-color: #090d16 !important; /* solid background for high contrast */
   border: 1.5px solid var(--border-color) !important;
-  border-radius: 6px !important;
-  padding: 0.65rem 2.5rem 0.65rem 1rem !important; /* right padding for custom arrow */
+  border-radius: 8px !important;
+  padding: 0.75rem 2.75rem 0.75rem 1rem !important; /* right padding for custom arrow */
   color: #ffffff !important; /* solid white for optimal text contrast */
   outline: none !important;
   font-family: inherit !important;
-  font-size: 0.85rem !important;
+  font-size: 0.875rem !important;
+  font-weight: 500 !important;
   cursor: pointer !important;
   width: 100% !important;
+  min-height: 44px !important;
   transition: var(--transition-smooth) !important;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
   
   /* Custom High-Contrast SVG Arrow */
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%239ca3af' stroke-width='2.5'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M19.5 8.25l-7.5 7.5-7.5-7.5'/%3E%3C/svg%3E") !important;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2310b981' stroke-width='2.5'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M19.5 8.25l-7.5 7.5-7.5-7.5'/%3E%3C/svg%3E") !important;
   background-repeat: no-repeat !important;
   background-position: right 1rem center !important;
-  background-size: 1rem !important;
+  background-size: 1.1rem !important;
   appearance: none !important;
   -webkit-appearance: none !important;
   -moz-appearance: none !important;
@@ -873,11 +876,12 @@ h1, h2, h3, h4, h5 {
 .select-wrapper select:hover {
   border-color: rgba(16, 185, 129, 0.6) !important; /* Emerald hover boundary */
   background-color: #111827 !important; /* Slightly lighter base */
+  box-shadow: 0 0 15px rgba(16, 185, 129, 0.15) !important;
 }
 
 .select-wrapper select:focus {
-  border-color: var(--blue) !important;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.35) !important; /* Blue focus ring for visual focus state */
+  border-color: var(--emerald) !important;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.25) !important;
   background-color: #0b0f19 !important;
 }
 
@@ -891,9 +895,10 @@ h1, h2, h3, h4, h5 {
 
 /* Option element styling inside select dropdowns */
 .select-wrapper select option {
-  background-color: #090d16 !important; /* Solid background prevents OS light theme bleeding */
-  color: #ffffff !important; /* High contrast text color */
-  padding: 12px !important;
+  background-color: #090d16 !important;
+  color: #ffffff !important;
+  padding: 14px !important;
+  font-size: 0.9rem !important;
 }
 
 .select-wrapper select option:disabled {
@@ -1009,7 +1014,7 @@ h1, h2, h3, h4, h5 {
   margin-top: 0.2rem;
 }
 
-/* Interview Prep questions */
+/* Interview Prep Professional Interactive Flashcard Deck */
 .interview-results {
   margin-top: 1.5rem;
 }
@@ -1020,26 +1025,48 @@ h1, h2, h3, h4, h5 {
   gap: 1.5rem;
 }
 
-@media (max-width: 768px) {
+@media (min-width: 1400px) {
+  .interview-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 900px) {
   .interview-grid {
     grid-template-columns: 1fr;
   }
 }
 
+/* Flashcard Container Box */
 .question-card {
-  background: rgba(255, 255, 255, 0.005);
+  background: var(--bg-card);
   border: 1px solid var(--border-color);
-  border-radius: 0.75rem;
+  border-radius: 1rem;
   overflow: hidden;
+  box-shadow: var(--glow-card);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  display: flex;
+  flex-direction: column;
+  transition: var(--transition-smooth);
+}
+
+.question-card:hover {
+  border-color: rgba(255, 255, 255, 0.12);
+  transform: translateY(-2px);
 }
 
 .q-header {
-  padding: 0.75rem 1.25rem;
+  padding: 0.85rem 1.25rem;
   font-size: 0.85rem;
-  font-weight: 700;
+  font-weight: 800;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.06em;
   color: #030712;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
 .q-header.technical { background: var(--grad-primary); }
@@ -1052,40 +1079,71 @@ h1, h2, h3, h4, h5 {
   list-style: none;
   display: flex;
   flex-direction: column;
-  padding: 0.5rem 0;
+  gap: 0.75rem;
+  padding: 1rem;
+  flex: 1;
 }
 
+/* Individual Interactive Question Flashcard */
 .q-item {
-  padding: 0.85rem 1.25rem;
-  font-size: 0.825rem;
+  background: rgba(255, 255, 255, 0.015);
+  border: 1px solid var(--border-color);
+  border-left: 4px solid var(--emerald);
+  border-radius: 0.65rem;
+  padding: 0.9rem 1.1rem;
+  font-size: 0.85rem;
   color: var(--text-main);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.015);
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  gap: 0.75rem;
+  gap: 0.85rem;
   transition: var(--transition-smooth);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+  position: relative;
 }
 
+.question-card:has(.technical) .q-item { border-left-color: var(--emerald); }
+.question-card:has(.project) .q-item { border-left-color: var(--blue); }
+.question-card:has(.skillgap) .q-item { border-left-color: var(--rose); }
+.question-card:has(.behavioral) .q-item { border-left-color: var(--purple); }
+.question-card:has(.hr) .q-item { border-left-color: var(--amber); }
+
 .q-item:last-child {
-  border-bottom: none;
+  border-bottom: 1px solid var(--border-color);
 }
 
 .q-item:hover {
-  background: rgba(255, 255, 255, 0.01);
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.15);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 15px rgba(0, 0, 0, 0.25);
 }
 
 .q-item-text {
   flex: 1;
+  line-height: 1.5;
+  font-weight: 500;
 }
 
 .btn-copy-q {
-  background: transparent;
-  border: none;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
   color: var(--text-muted);
   cursor: pointer;
-  padding: 0.15rem;
+  padding: 0.35rem 0.5rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   transition: var(--transition-smooth);
+  flex-shrink: 0;
+}
+
+.btn-copy-q:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.2);
+  transform: scale(1.05);
 }
 
 .btn-copy-q:hover {
@@ -2326,8 +2384,10 @@ body::-webkit-scrollbar-track {
 }
 
 .footer-container {
-  max-width: 1650px;
+  max-width: 1800px;
+  width: 100%;
   margin: 0 auto;
+  padding: 0 clamp(1rem, 3vw, 2.5rem);
 }
 
 .footer-container p {

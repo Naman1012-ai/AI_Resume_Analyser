@@ -2161,7 +2161,7 @@ document.addEventListener('DOMContentLoaded', () => {
       
       li.innerHTML = `
         <span class="q-item-text">${escapeHTML(q)}</span>
-        <button class="btn-copy-q" title="Copy Question">
+        <button class="btn-copy-q" title="Copy Flashcard Question">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
             <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
             <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
@@ -2169,10 +2169,26 @@ document.addEventListener('DOMContentLoaded', () => {
         </button>
       `;
 
-      li.querySelector('.btn-copy-q').addEventListener('click', async () => {
+      const copyBtn = li.querySelector('.btn-copy-q');
+      copyBtn.addEventListener('click', async () => {
         try {
           await navigator.clipboard.writeText(q);
-          showToast('Question copied to clipboard!');
+          showToast('Flashcard question copied to clipboard!');
+          
+          const originalHTML = copyBtn.innerHTML;
+          copyBtn.innerHTML = `
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--emerald)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+          `;
+          copyBtn.style.borderColor = 'rgba(16, 185, 129, 0.4)';
+          copyBtn.style.background = 'rgba(16, 185, 129, 0.1)';
+
+          setTimeout(() => {
+            copyBtn.innerHTML = originalHTML;
+            copyBtn.style.borderColor = '';
+            copyBtn.style.background = '';
+          }, 1500);
         } catch (e) {
           showToast('Failed to copy question.', 'error');
         }
