@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Interview Prep - ATS Pilot</title>
+  <link rel="stylesheet" href="css/style.css">
+  
+  
+  
+  
+</head>
+<body>
+
+  <!-- Injected Header placeholder -->
+  <div id="app-header-placeholder"></div>
+
+  <!-- Scalable Routed Layout -->
+  <div class="dashboard-layout">
+    <!-- Injected Sidebar placeholder -->
+    <div id="app-sidebar-placeholder"></div>
+
+    <main class="main-page-container">
+      <div id="page-analysis-report" class="page-view">
+        
+        <!-- Dedicated Report Header Bar -->
+        <div class="report-header-bar" style="display: flex; justify-content: space-between; align-items: center; padding: 1rem 1.5rem; background: rgba(15, 23, 42, 0.6); border: 1px solid var(--border-color); border-radius: var(--radius-xl); margin-bottom: 2rem; backdrop-filter: blur(12px);">
+          <div class="report-header-left" style="display: flex; flex-direction: column; gap: 0.25rem;">
+            <h3 id="report-header-name" style="margin: 0; font-size: 1.25rem; font-weight: 700; color: var(--text-main);">Resume Name</h3>
+            <div style="display: flex; align-items: center; gap: 0.75rem; font-size: 0.8rem; color: var(--text-muted);">
+              <span id="report-header-role">Target Role: Software Engineer</span>
+              <span style="color: var(--border-color);">|</span>
+              <span id="report-header-date">Parsed 2 hours ago</span>
+            </div>
+          </div>
+          <div class="report-header-right" style="display: flex; align-items: center; gap: 1rem;">
+            <span id="report-header-badge" class="badge-ats" style="font-size: 0.75rem; font-weight: 700; padding: 0.35rem 0.75rem; border-radius: 9999px; border: 1px solid var(--border-color);">Optimized</span>
+            <div id="report-header-score" style="font-size: 1.75rem; font-weight: 800; color: var(--emerald); font-family: 'Outfit', sans-serif;">92/100</div>
+          </div>
+        </div>
+
+        <div class="report-layout-grid" style="display: grid; grid-template-columns: 240px 1fr; gap: var(--spacing-32); align-items: start; position: relative; width: 100%;">
+          
+          <!-- Floating Sticky Index Sidebar -->
+          <aside class="report-section-index-sidebar" style="position: sticky; top: 100px; display: flex; flex-direction: column; gap: 0.5rem; max-height: calc(100vh - 140px); overflow-y: auto; padding-right: 0.5rem;">
+            <div style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; padding-left: 0.8rem; margin-bottom: 0.5rem;">Report Pages</div>
+            <a href="analysis.html" class="index-link">ATS Score Audit</a>
+            <a href="skill-gap.html" class="index-link">Skill Gap Analysis</a>
+            <a href="interview.html" class="index-link active">Interview Prep</a>
+            <a href="roadmap.html" class="index-link">Career Roadmap</a>
+          </aside>
+
+          <!-- Main Report Document Area -->
+          <div class="report-document-area" style="display: flex; flex-direction: column; gap: var(--spacing-32); overflow: hidden; width: 100%;">
+            
+            <section id="interview-dashboard" class="report-section panel" style="scroll-margin-top: 120px;">
+              <h3 class="panel-title">Interview Practice Questions</h3>
+              
+              <!-- Dedicated Role Selector View -->
+              <div id="standalone-selector-container" style="background: rgba(30, 41, 59, 0.4); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 1.5rem; margin-top: 1rem; margin-bottom: 2rem;">
+                <h4 style="margin-top: 0; margin-bottom: 0.5rem; font-size: 1.05rem; font-weight: 700; color: var(--text-main);">Configure Target Role for Practice Questions</h4>
+                <p style="margin-top: 0; margin-bottom: 1.25rem; font-size: 0.85rem; color: var(--text-muted);">
+                  Select a predefined job role or enter a custom role below. We will customize 25 practice questions tailored specifically to this role's industry standards.
+                </p>
+                <div style="display: grid; grid-template-columns: 1fr 1fr auto; gap: 1rem; align-items: flex-end;">
+                  <div class="form-group" style="display: flex; flex-direction: column; gap: 0.5rem; margin: 0;">
+                    <label style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted);">Predefined Role</label>
+                    <select id="standalone-role-select" style="background: #030712; border: 1px solid var(--border-color); color: var(--text-main); padding: 0.75rem; border-radius: var(--radius-md); font-size: 0.9rem; outline: none; cursor: pointer; width: 100%;">
+                      <option value="Software Engineer">Software Engineer</option>
+                      <option value="Frontend Developer">Frontend Developer</option>
+                      <option value="Backend Developer">Backend Developer</option>
+                      <option value="Fullstack Developer">Fullstack Developer</option>
+                      <option value="DevOps Engineer">DevOps Engineer</option>
+                      <option value="Mobile Developer">Mobile Developer</option>
+                      <option value="Data Scientist">Data Scientist</option>
+                      <option value="QA Engineer">QA Engineer</option>
+                      <option value="Cybersecurity Analyst">Cybersecurity Analyst</option>
+                      <option value="Product Manager">Product Manager</option>
+                      <option value="Other">Other / Custom Role</option>
+                    </select>
+                  </div>
+                  <div class="form-group" id="custom-role-input-group" style="display: flex; flex-direction: column; gap: 0.5rem; margin: 0; opacity: 0.5; pointer-events: none; transition: opacity 0.2s; width: 100%;">
+                    <label style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted);">Custom Role Title</label>
+                    <input type="text" id="standalone-custom-role" placeholder="e.g. Cloud Engineer" style="background: rgba(255, 255, 255, 0.02); border: 1px solid var(--border-color); color: var(--text-main); padding: 0.7rem 1rem; border-radius: var(--radius-md); font-size: 0.9rem; outline: none; width: 100%;">
+                  </div>
+                  <button id="btn-generate-standalone" class="btn-primary" style="padding: 0.75rem 1.5rem; font-weight: 700; border-radius: var(--radius-md); display: inline-flex; align-items: center; gap: 0.5rem; border: none; background: var(--emerald); color: #030712; height: 43px; cursor: pointer;">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+                    Generate Prep
+                  </button>
+                </div>
+              </div>
+
+              <p class="section-subtitle" id="active-role-subtitle-container" style="display: block;">Practice questions compiled dynamically based on resume content and target role: <strong id="interview-active-role" style="color: var(--emerald); font-weight: 600;">Software Engineer</strong></p>
+              
+              <div class="skeleton-container animate-pulse" id="interview-loader" style="display: none; margin-top: 1.5rem;">
+                <div class="skeleton-grid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.5rem;">
+                  <div class="skeleton-card h-40 animate-pulse" style="height: 180px; background: var(--bg-card); border-radius: var(--radius-lg);"></div>
+                  <div class="skeleton-card h-40 animate-pulse" style="height: 180px; background: var(--bg-card); border-radius: var(--radius-lg);"></div>
+                </div>
+              </div>
+
+              <div class="empty-state" id="interview-empty-state" style="display: none; text-align: center; padding: 2rem 1.5rem;">
+                <div class="empty-state-icon" style="font-size: 2.5rem; margin-bottom: 0.5rem;">💬</div>
+                <p style="color: var(--text-muted); font-size: 0.9rem;">Interview prep questions not loaded yet.</p>
+              </div>
+
+              <div class="interview-results" id="interview-results" style="display: block; margin-top: 1.5rem;">
+                <div class="interview-grid">
+                  <div class="question-card">
+                    <div class="q-header technical"><span>Technical Questions</span></div>
+                    <ul class="q-list" id="technical-questions-list"></ul>
+                  </div>
+                  <div class="question-card">
+                    <div class="q-header project"><span>Project-Based Questions</span></div>
+                    <ul class="q-list" id="project-questions-list"></ul>
+                  </div>
+                  <div class="question-card">
+                    <div class="q-header skillgap"><span>Skill Gap Questions</span></div>
+                    <ul class="q-list" id="skillgap-questions-list"></ul>
+                  </div>
+                  <div class="question-card">
+                    <div class="q-header behavioral"><span>Behavioral Questions</span></div>
+                    <ul class="q-list" id="behavioral-questions-list"></ul>
+                  </div>
+                  <div class="question-card">
+                    <div class="q-header hr"><span>HR & Conversation Questions</span></div>
+                    <ul class="q-list" id="hr-questions-list"></ul>
+                  </div>
+                </div>
+
+                <!-- Evaluation Benchmarks / Grading Rubrics Section -->
+                <div id="grading-rubrics-container" style="margin-top: 2rem; background: rgba(30, 41, 59, 0.3); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 1.5rem; display: none;">
+                  <h4 style="margin: 0 0 1rem 0; font-size: 1.1rem; font-weight: 700; color: var(--emerald); display: flex; align-items: center; gap: 0.5rem;">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+                    Evaluation Benchmarks & Grading Guidelines
+                  </h4>
+                  <div id="grading-rubrics-list" style="display: flex; flex-direction: column; gap: 1rem;">
+                    <!-- Rubric entries go here -->
+                  </div>
+                </div>
+              </div>
+            </section>
+
+          </div>
+
+        </div>
+
+      </div>
+    </main>
+  </div>
+
+  <script type="module" src="js/firebase-config.js"></script>
+  <script type="module" src="js/auth-guard.js"></script>
+  <script type="module" src="js/navigation.js"></script>
+  <script type="module" src="js/interview.js"></script>
+</body>
+</html>

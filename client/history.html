@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>My Analyses - ATS Pilot</title>
+  <link rel="stylesheet" href="css/style.css">
+  
+  
+  
+   <!-- Reuses filters and panels -->
+</head>
+<body>
+
+  <!-- Injected Header placeholder -->
+  <div id="app-header-placeholder"></div>
+
+  <!-- Scalable Routed Layout -->
+  <div class="dashboard-layout">
+    <!-- Injected Sidebar placeholder -->
+    <div id="app-sidebar-placeholder"></div>
+
+    <main class="main-page-container">
+      <div id="page-history" class="page-view">
+        <div class="page-header-row">
+          <h2>Analysis History Catalog</h2>
+          <p class="page-subtitle">Manage, search, and reload your complete portfolio of analyzed resumes.</p>
+        </div>
+        
+        <!-- Filters & Sorting Row -->
+        <div class="history-filters-row mt-3" style="display: flex; gap: var(--spacing-16); flex-wrap: wrap; margin-top: 1rem;">
+          <div class="search-wrapper" style="flex: 1; min-width: 260px; position: relative;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="search-icon" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text-muted);">
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+            <input type="text" id="history-search-input" placeholder="Search by resume name..." aria-label="Search analyses by resume name" style="width: 100%; padding-left: 2.5rem;">
+          </div>
+          
+          <div class="select-wrapper select-sort-wrapper" style="min-width: 200px;">
+            <select id="history-sort-select" aria-label="Sort analyses by" style="width: 100%;">
+              <option value="date-desc">Date (Newest First)</option>
+              <option value="date-asc">Date (Oldest First)</option>
+              <option value="score-desc">Score (Highest First)</option>
+              <option value="score-asc">Score (Lowest First)</option>
+            </select>
+          </div>
+        </div>
+        
+        <!-- History Catalog Cards Container -->
+        <div class="history-catalog-wrapper mt-4">
+          <!-- Loading Skeleton Grid -->
+          <div class="history-loader-grid" id="history-loader" style="display: none; display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1.5rem; margin-top: 1.5rem;">
+            <div class="skeleton-history-card animate-pulse" style="height: 160px; background: var(--bg-card); border-radius: var(--radius-lg);"></div>
+            <div class="skeleton-history-card animate-pulse" style="height: 160px; background: var(--bg-card); border-radius: var(--radius-lg);"></div>
+            <div class="skeleton-history-card animate-pulse" style="height: 160px; background: var(--bg-card); border-radius: var(--radius-lg);"></div>
+          </div>
+
+          <div id="history-empty-state" class="history-empty" style="display: none; text-align: center; padding: 3rem 1rem; margin-top: 2rem;">
+            <div class="empty-state-icon" style="font-size: 3rem; margin-bottom: 1rem;">📁</div>
+            <h3 style="margin-bottom: 0.5rem;">No analyses yet.</h3>
+            <p style="color: var(--text-muted); max-width: 400px; margin: 0 auto 1.5rem;">Try processing your first resume under the "New Analysis" section.</p>
+            <a href="new-analysis.html" class="btn-primary mt-3" style="display: inline-flex; align-items: center; width: auto; padding: 0.6rem 1.5rem;">
+              Analyze Resume
+            </a>
+          </div>
+          
+          <!-- Dynamic Grid of Cards -->
+          <div class="history-cards-grid" id="history-cards-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1.5rem; margin-top: 1.5rem;">
+            <!-- Cards dynamically inserted here -->
+          </div>
+          
+          <!-- Pagination Controls -->
+          <div class="history-pagination-row" id="history-pagination" style="display: none; display: flex; align-items: center; justify-content: center; gap: 1.5rem; margin-top: 2rem;">
+            <button class="btn-pagination-nav" id="btn-history-prev" disabled style="display: inline-flex; align-items: center; gap: 0.25rem;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="15 18 9 12 15 6"></polyline>
+              </svg>
+              Prev
+            </button>
+            <span id="history-page-info">Page 1 of 1</span>
+            <button class="btn-pagination-nav" id="btn-history-next" disabled style="display: inline-flex; align-items: center; gap: 0.25rem;">
+              Next
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="9 18 15 12 9 6"></polyline>
+              </svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script type="module" src="js/firebase-config.js"></script>
+  <script type="module" src="js/auth-guard.js"></script>
+  <script type="module" src="js/navigation.js"></script>
+  <script type="module" src="js/history.js"></script>
+</body>
+</html>

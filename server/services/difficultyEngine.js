@@ -311,6 +311,40 @@ const generateDifficultyMetadata = (profile, atsScore = 0) => {
   return validationResult.finalMetadata;
 };
 
+/**
+ * Generates difficulty metadata based solely on the target role title for standalone mode.
+ * @param {string} targetRole
+ * @returns {object} Difficulty metadata
+ */
+const generateStandaloneDifficulty = (targetRole = 'Software Engineer') => {
+  const role = (targetRole || 'Software Engineer').toLowerCase();
+  
+  let difficulty = 'Intermediate';
+  let experienceLevel = 'Mid-Level';
+  
+  if (role.includes('lead') || role.includes('architect') || role.includes('principal') || role.includes('manager') || role.includes('director') || role.includes('staff')) {
+    difficulty = 'Expert';
+    experienceLevel = 'Senior';
+  } else if (role.includes('senior') || role.includes('sr.')) {
+    difficulty = 'Advanced';
+    experienceLevel = 'Senior';
+  } else if (role.includes('junior') || role.includes('jr.') || role.includes('intern') || role.includes('student') || role.includes('associate') || role.includes('entry') || role.includes('fresher')) {
+    difficulty = 'Beginner';
+    experienceLevel = 'Junior';
+  }
+
+  logger.info('DifficultyEngine', `Standalone difficulty classification complete for role "${targetRole}": Difficulty: ${difficulty}, Experience Level: ${experienceLevel}`);
+
+  return {
+    difficulty,
+    interviewStyle: getInterviewStyle(difficulty),
+    expectedKnowledge: getExpectedKnowledge(difficulty),
+    followupDepth: getFollowupDepth(difficulty),
+    categoryAdaptations: getCategoryAdaptations(difficulty, experienceLevel)
+  };
+};
+
 module.exports = {
-  generateDifficultyMetadata
+  generateDifficultyMetadata,
+  generateStandaloneDifficulty
 };

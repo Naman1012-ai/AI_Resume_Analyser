@@ -1,0 +1,77 @@
+/* Learning Roadmap Card & Timeline */
+.roadmap-card {
+  background: rgba(255, 255, 255, 0.005);
+  border: 1px solid var(--border-color);
+  border-radius: 0.75rem;
+  padding: 1.5rem;
+}
+
+.roadmap-card h3 {
+  font-size: 0.95rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+  color: var(--blue);
+}
+
+.roadmap-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  position: relative;
+  padding-left: 1.5rem;
+}
+
+.roadmap-timeline::before {
+  content: '';
+  position: absolute;
+  left: 5px;
+  top: 6px;
+  bottom: 6px;
+  width: 2px;
+  background: rgba(59, 130, 246, 0.15);
+}
+
+.timeline-node {
+  position: relative;
+}
+
+.timeline-node::before {
+  content: '';
+  position: absolute;
+  left: -20px;
+  top: 8px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--blue);
+  box-shadow: 0 0 8px var(--blue);
+}
+
+.timeline-node-title {
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.timeline-node-desc {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+  margin-top: 0.2rem;
+}
+
+p, li, .detail-list li, .compare-summary-list li, .roadmap-timeline, .timeline-node-desc, #extracted-text-content, pre {
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
+pre, #extracted-text-content {
+  white-space: pre-wrap !important;
+  word-break: break-all !important;
+}
+
+/* SVG Chart styling */
+#trend-chart-svg {

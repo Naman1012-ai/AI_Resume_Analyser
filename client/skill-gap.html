@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Skill Gap Analysis - ATS Pilot</title>
+  <link rel="stylesheet" href="css/style.css">
+  
+  
+  
+  
+</head>
+<body>
+
+  <!-- Injected Header placeholder -->
+  <div id="app-header-placeholder"></div>
+
+  <!-- Scalable Routed Layout -->
+  <div class="dashboard-layout">
+    <!-- Injected Sidebar placeholder -->
+    <div id="app-sidebar-placeholder"></div>
+
+    <main class="main-page-container">
+      <div id="page-analysis-report" class="page-view">
+        
+        <!-- Dedicated Report Header Bar -->
+        <div class="report-header-bar" style="display: flex; justify-content: space-between; align-items: center; padding: 1rem 1.5rem; background: rgba(15, 23, 42, 0.6); border: 1px solid var(--border-color); border-radius: var(--radius-xl); margin-bottom: 2rem; backdrop-filter: blur(12px);">
+          <div class="report-header-left" style="display: flex; flex-direction: column; gap: 0.25rem;">
+            <h3 id="report-header-name" style="margin: 0; font-size: 1.25rem; font-weight: 700; color: var(--text-main);">Resume Name</h3>
+            <div style="display: flex; align-items: center; gap: 0.75rem; font-size: 0.8rem; color: var(--text-muted);">
+              <span id="report-header-role">Target Role: Software Engineer</span>
+              <span style="color: var(--border-color);">|</span>
+              <span id="report-header-date">Parsed 2 hours ago</span>
+            </div>
+          </div>
+          <div class="report-header-right" style="display: flex; align-items: center; gap: 1rem;">
+            <span id="report-header-badge" class="badge-ats" style="font-size: 0.75rem; font-weight: 700; padding: 0.35rem 0.75rem; border-radius: 9999px; border: 1px solid var(--border-color);">Optimized</span>
+            <div id="report-header-score" style="font-size: 1.75rem; font-weight: 800; color: var(--emerald); font-family: 'Outfit', sans-serif;">92/100</div>
+          </div>
+        </div>
+
+        <div class="report-layout-grid" style="display: grid; grid-template-columns: 240px 1fr; gap: var(--spacing-32); align-items: start; position: relative; width: 100%;">
+          
+          <!-- Floating Sticky Index Sidebar -->
+          <aside class="report-section-index-sidebar" style="position: sticky; top: 100px; display: flex; flex-direction: column; gap: 0.5rem; max-height: calc(100vh - 140px); overflow-y: auto; padding-right: 0.5rem;">
+            <div style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; padding-left: 0.8rem; margin-bottom: 0.5rem;">Report Pages</div>
+            <a href="analysis.html" class="index-link">ATS Score Audit</a>
+            <a href="skill-gap.html" class="index-link active">Skill Gap Analysis</a>
+            <a href="interview.html" class="index-link">Interview Prep</a>
+            <a href="roadmap.html" class="index-link">Career Roadmap</a>
+          </aside>
+
+          <!-- Main Report Document Area -->
+          <div class="report-document-area" style="display: flex; flex-direction: column; gap: var(--spacing-32); overflow: hidden; width: 100%;">
+            
+            <section id="skillgap-dashboard" class="report-section panel" style="scroll-margin-top: 120px;">
+              <h3 class="panel-title">Skill Gap Analysis</h3>
+              <p class="section-subtitle">Compare your resume against industry standard expectations for target role: <strong id="skillgap-active-role" style="color: var(--emerald); font-weight: 600;">Software Engineer</strong></p>
+              
+              <div class="skeleton-container animate-pulse" id="skillgap-loader" style="display: none; margin-top: 1.5rem;">
+                <div class="skeleton-grid" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem;">
+                  <div class="skeleton-card h-40 animate-pulse" style="height: 180px; background: var(--bg-card); border-radius: var(--radius-lg);"></div>
+                  <div class="skeleton-card h-40 animate-pulse" style="height: 180px; background: var(--bg-card); border-radius: var(--radius-lg);"></div>
+                  <div class="skeleton-card h-40 animate-pulse" style="height: 180px; background: var(--bg-card); border-radius: var(--radius-lg);"></div>
+                </div>
+              </div>
+
+              <div class="empty-state" id="skillgap-empty-state" style="display: none; text-align: center; padding: 2rem 1.5rem;">
+                <div class="empty-state-icon" style="font-size: 2.5rem; margin-bottom: 0.5rem;">💬</div>
+                <p style="color: var(--text-muted); font-size: 0.9rem;">Skill gap metrics not loaded yet.</p>
+              </div>
+
+              <div id="skillgap-results" style="display: block; margin-top: 1.5rem;">
+                <div class="skills-columns-grid">
+                  <div class="skill-col matched">
+                    <h4><span class="dot green"></span>Matched Skills</h4>
+                    <div class="tag-cloud mt-3" id="matched-skills-tags"></div>
+                  </div>
+                  <div class="skill-col missing">
+                    <h4><span class="dot red"></span>Missing Skills</h4>
+                    <div class="tag-cloud mt-3" id="missing-skills-tags"></div>
+                  </div>
+                  <div class="skill-col recommended">
+                    <h4><span class="dot blue"></span>Recommended Skills</h4>
+                    <div class="tag-cloud mt-3" id="recommended-skills-tags"></div>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+          </div>
+
+        </div>
+
+      </div>
+    </main>
+  </div>
+
+  <script type="module" src="js/firebase-config.js"></script>
+  <script type="module" src="js/auth-guard.js"></script>
+  <script type="module" src="js/navigation.js"></script>
+  <script type="module" src="js/skill-gap.js"></script>
+</body>
+</html>

@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ATS Report - ATS Pilot</title>
+  <link rel="stylesheet" href="css/style.css">
+  
+  
+  
+  
+</head>
+<body>
+
+  <!-- Injected Header placeholder -->
+  <div id="app-header-placeholder"></div>
+
+  <!-- Scalable Routed Layout -->
+  <div class="dashboard-layout">
+    <!-- Injected Sidebar placeholder -->
+    <div id="app-sidebar-placeholder"></div>
+
+    <main class="main-page-container">
+      <div id="page-analysis-report" class="page-view">
+        
+        <!-- Dedicated Report Header Bar -->
+        <div class="report-header-bar" style="display: flex; justify-content: space-between; align-items: center; padding: 1rem 1.5rem; background: rgba(15, 23, 42, 0.6); border: 1px solid var(--border-color); border-radius: var(--radius-xl); margin-bottom: 2rem; backdrop-filter: blur(12px);">
+          <div class="report-header-left" style="display: flex; flex-direction: column; gap: 0.25rem;">
+            <h3 id="report-header-name" style="margin: 0; font-size: 1.25rem; font-weight: 700; color: var(--text-main);">Resume Name</h3>
+            <div style="display: flex; align-items: center; gap: 0.75rem; font-size: 0.8rem; color: var(--text-muted);">
+              <span id="report-header-role">Target Role: Software Engineer</span>
+              <span style="color: var(--border-color);">|</span>
+              <span id="report-header-date">Parsed 2 hours ago</span>
+            </div>
+          </div>
+          <div class="report-header-right" style="display: flex; align-items: center; gap: 1rem;">
+            <span id="report-header-badge" class="badge-ats" style="font-size: 0.75rem; font-weight: 700; padding: 0.35rem 0.75rem; border-radius: 9999px; border: 1px solid var(--border-color);">Optimized</span>
+            <div id="report-header-score" style="font-size: 1.75rem; font-weight: 800; color: var(--emerald); font-family: 'Outfit', sans-serif;">92/100</div>
+          </div>
+        </div>
+
+        <div class="report-layout-grid" style="display: grid; grid-template-columns: 240px 1fr; gap: var(--spacing-32); align-items: start; position: relative; width: 100%;">
+          
+          <!-- Floating Sticky Index Sidebar -->
+          <aside class="report-section-index-sidebar" style="position: sticky; top: 100px; display: flex; flex-direction: column; gap: 0.5rem; max-height: calc(100vh - 140px); overflow-y: auto; padding-right: 0.5rem;">
+            <div style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; padding-left: 0.8rem; margin-bottom: 0.5rem;">Report Pages</div>
+            <a href="analysis.html" class="index-link active">ATS Score Audit</a>
+            <a href="skill-gap.html" class="index-link">Skill Gap Analysis</a>
+            <a href="interview.html" class="index-link">Interview Prep</a>
+            <a href="roadmap.html" class="index-link">Career Roadmap</a>
+          </aside>
+
+          <!-- Main Report Document Area -->
+          <div class="report-document-area" style="display: flex; flex-direction: column; gap: var(--spacing-32); overflow: hidden; width: 100%;">
+            
+            <!-- 1. OVERVIEW SECTION -->
+            <section id="report-overview" class="report-section" style="scroll-margin-top: 120px;">
+              <div class="results-header">
+                <div class="results-header-info">
+                  <h2 id="res-filename" style="margin: 0 0 0.5rem 0; font-size: 1.5rem; font-weight: 700; word-break: break-all;">Resume Name</h2>
+                  <span class="badge-ats" id="res-ats-badge">ATS Compatibility: Good</span>
+                </div>
+              </div>
+            </section>
+
+            <!-- 2. ATS SCORE SECTION -->
+            <section id="report-ats-score" class="report-section panel" style="scroll-margin-top: 120px;">
+              <h3 class="panel-title">ATS Compatibility Score</h3>
+              <p class="section-subtitle">Overall compliance rating against structural and parsing tests</p>
+              
+              <div class="score-circle-wrapper" style="margin: 2rem auto 0 auto; width: 160px; height: 160px; display: flex; align-items: center; justify-content: center; position: relative;">
+                <svg class="score-circle-svg" viewBox="0 0 100 100" style="transform: rotate(-90deg); width: 100%; height: 100%;">
+                  <circle class="score-circle-bg" cx="50" cy="50" r="40" style="fill: none; stroke: rgba(255,255,255,0.03); stroke-width: 6;"></circle>
+                  <circle class="score-circle-fill" id="score-fill-circle" cx="50" cy="50" r="40" style="fill: none; stroke: var(--emerald); stroke-width: 6; stroke-linecap: round; transition: stroke-dashoffset 1s cubic-bezier(0.4, 0, 0.2, 1);"></circle>
+                </svg>
+                <div class="score-text" style="position: absolute; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center;">
+                  <span class="score-number" id="res-score" style="font-size: 2.25rem; font-weight: 800; font-family: 'Outfit', sans-serif; color: var(--text-main); line-height: 1;">0</span>
+                  <span class="score-label" style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-top: 0.25rem;">Score</span>
+                </div>
+              </div>
+            </section>
+
+            <!-- 3. BREAKDOWN SECTION -->
+            <section id="report-breakdown" class="report-section panel" style="scroll-margin-top: 120px;">
+              <h3 class="panel-title">Score Breakdown Details</h3>
+              <p class="section-subtitle">Individual parsing score indicators (Click cards to expand details)</p>
+              <div class="breakdown-grid" id="breakdown-grid" style="margin-top: 1.5rem;"></div>
+            </section>
+
+            <!-- 4. STRENGTHS SECTION -->
+            <section id="report-strengths" class="report-section panel list-panel strengths" style="scroll-margin-top: 120px;">
+              <h3 class="panel-title">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color: var(--emerald); margin-right: 0.5rem; vertical-align: middle;">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                Key Strengths
+              </h3>
+              <p class="section-subtitle">Parsing layers and content structures matching target criteria</p>
+              <ul class="detail-list" id="res-strengths-list" style="margin-top: 1.25rem;"></ul>
+            </section>
+
+            <!-- 5. WEAKNESSES SECTION -->
+            <section id="report-weaknesses" class="report-section panel list-panel weaknesses" style="scroll-margin-top: 120px;">
+              <h3 class="panel-title">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color: #f43f5e; margin-right: 0.5rem; vertical-align: middle;">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <line x1="12" y1="8" x2="12" y2="12"></line>
+                  <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                </svg>
+                ATS Risks & Weaknesses
+              </h3>
+              <p class="section-subtitle">Critical issues detected that block tracking software algorithms</p>
+              <ul class="detail-list" id="res-weaknesses-list" style="margin-top: 1.25rem;"></ul>
+            </section>
+
+            <!-- 6. MISSING KEYWORDS SECTION -->
+            <section id="report-keywords" class="report-section panel" style="scroll-margin-top: 120px;">
+              <h3 class="panel-title">Keywords & Section Gaps</h3>
+              <p class="section-subtitle">Missing credentials or keywords relevant for target roles</p>
+              
+              <div class="tags-row-grid" style="margin-top: 1.5rem; display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
+                <div class="keywords-panel" id="res-missing-keywords-panel" style="background: rgba(255,255,255,0.01); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1.25rem;">
+                  <h4 style="margin: 0 0 0.75rem 0; font-size: 0.95rem; font-weight: 700; color: var(--text-main);">Missing Keywords</h4>
+                  <div class="tag-cloud" id="res-missing-keywords-tags"></div>
+                </div>
+                <div class="keywords-panel" id="res-missing-sections-panel" style="background: rgba(255,255,255,0.01); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1.25rem;">
+                  <h4 style="margin: 0 0 0.75rem 0; font-size: 0.95rem; font-weight: 700; color: var(--text-main);">Missing Sections</h4>
+                  <div class="tag-cloud" id="res-missing-sections-tags" style="color: #ef4444;"></div>
+                </div>
+              </div>
+            </section>
+
+            <!-- 7. RESUME REWRITE SECTION -->
+            <section id="report-rewrite" class="report-section panel list-panel recommendations" style="scroll-margin-top: 120px;">
+              <h3 class="panel-title">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color: var(--blue); margin-right: 0.5rem; vertical-align: middle;">
+                  <path d="M12 20h9"></path>
+                  <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+                </svg>
+                Resume Rewrite Suggestions
+              </h3>
+              <p class="section-subtitle">Drop-in phrasing optimizations to boost score compatibility</p>
+              <ul class="detail-list" id="res-rewrite-list" style="margin-top: 1.25rem;"></ul>
+              
+              <h4 style="margin: 1.5rem 0 0.5rem 0; font-size: 0.95rem; font-weight: 700; color: var(--text-main);">General Optimization Tips</h4>
+              <ul class="detail-list" id="res-ats-tips-list"></ul>
+            </section>
+
+            <!-- 8. RECRUITER FEEDBACK SECTION -->
+            <section id="report-feedback" class="report-section panel feedback-card" id="res-feedback-card" style="scroll-margin-top: 120px;">
+              <h3 class="panel-title">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color: var(--amber); margin-right: 0.5rem; vertical-align: middle;">
+                  <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path>
+                </svg>
+                Recruiter Evaluation Summary
+              </h3>
+              <p class="section-subtitle">Qualitative synthesis and general recommendations</p>
+              <p id="res-feedback-text" style="margin-top: 1.25rem; font-size: 0.95rem; line-height: 1.6; color: var(--text-main); font-weight: 500;"></p>
+            </section>
+
+          </div>
+
+        </div>
+
+      </div>
+    </main>
+  </div>
+
+  <script type="module" src="js/firebase-config.js"></script>
+  <script type="module" src="js/auth-guard.js"></script>
+  <script type="module" src="js/navigation.js"></script>
+  <script type="module" src="js/analysis.js"></script>
+</body>
+</html>

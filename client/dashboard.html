@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard - ATS Pilot</title>
+  <link rel="stylesheet" href="css/style.css">
+  
+  
+  
+  
+</head>
+<body>
+
+  <!-- Injected Header placeholder -->
+  <div id="app-header-placeholder"></div>
+
+  <!-- Scalable Routed Layout -->
+  <div class="dashboard-layout">
+    <!-- Injected Sidebar placeholder -->
+    <div id="app-sidebar-placeholder"></div>
+
+    <main class="main-page-container">
+      <div id="page-dashboard" class="page-view">
+        <!-- Welcome Row -->
+        <div class="dashboard-welcome-card" style="margin-bottom: var(--spacing-24); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; padding: var(--spacing-20); background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-xl);">
+          <div class="welcome-card-content">
+            <h2 style="font-size: 1.5rem; font-weight: 700; margin: 0;">Welcome back, <span id="welcome-username">Developer</span>.</h2>
+            <p style="color: var(--text-muted); margin: 0.25rem 0 0 0; font-size: 0.95rem;">Your resume intelligence dashboard is ready.</p>
+          </div>
+        </div>
+
+        <!-- Empty State Banner -->
+        <div id="dashboard-empty-state-banner" style="display: none; text-align: center; padding: 4rem 2rem; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-xl); box-shadow: var(--shadow-card); margin-top: var(--spacing-24);">
+          <div style="font-size: 3rem; margin-bottom: 1rem;">📄</div>
+          <h3 style="font-size: 1.5rem; font-weight: 700; margin-bottom: var(--spacing-8);">No resume analyzed yet.</h3>
+          <p style="color: var(--text-muted); max-width: 480px; margin: 0 auto var(--spacing-24) auto; font-size: 0.95rem; line-height: 1.6;">Upload your first PDF resume to evaluate scores, identify skill gaps, and generate interview preparation guides.</p>
+          <a href="new-analysis.html" class="btn-cta-primary" style="padding: 0.85rem 2rem; text-decoration: none; border-radius: var(--radius-md); font-weight: 700;">Analyze Resume</a>
+        </div>
+
+        <!-- Dashboard Main Content Grid -->
+        <div id="dashboard-main-content">
+          <!-- Stats Grid -->
+          <div class="dashboard-stats-grid">
+            <a href="history.html" class="analytics-card kpi-card" style="text-decoration: none; color: inherit; display: block;">
+              <div class="analytics-card-header">
+                <h3>Total Analyses</h3>
+                <span class="analytics-card-icon blue">📄</span>
+              </div>
+              <div class="analytics-card-value" id="stats-total-resumes">0</div>
+              <p class="analytics-card-desc">Click to view all processed files</p>
+            </a>
+            
+            <a href="#" class="analytics-card kpi-card" id="kpi-highest-score-link" style="text-decoration: none; color: inherit; display: block;">
+              <div class="analytics-card-header">
+                <h3>Highest ATS Score</h3>
+                <span class="analytics-card-icon gold">🏆</span>
+              </div>
+              <div class="analytics-card-value" id="stats-highest-score">0/100</div>
+              <p class="analytics-card-desc">Click to view best iteration</p>
+            </a>
+
+            <a href="#" class="analytics-card kpi-card" id="kpi-average-score-link" style="text-decoration: none; color: inherit; display: block;">
+              <div class="analytics-card-header">
+                <h3>Average ATS Score</h3>
+                <span class="analytics-card-icon emerald">📈</span>
+              </div>
+              <div class="analytics-card-value" id="stats-average-score">0%</div>
+              <p class="analytics-card-desc">Click to scroll to Trend Chart</p>
+            </a>
+
+            <a href="history.html" class="analytics-card kpi-card" style="text-decoration: none; color: inherit; display: block;">
+              <div class="analytics-card-header">
+                <h3>Most Targeted Role</h3>
+                <span class="analytics-card-icon blue">🎯</span>
+              </div>
+              <div class="analytics-card-value" id="stats-most-targeted-role" style="font-size: 1.3rem; line-height: 2.2rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">None</div>
+              <p class="analytics-card-desc">Primary targeted job profile</p>
+            </a>
+
+            <a href="#" class="analytics-card kpi-card" id="kpi-last-analysis-link" style="text-decoration: none; color: inherit; display: block;">
+              <div class="analytics-card-header">
+                <h3>Last Analysis</h3>
+                <span class="analytics-card-icon purple">⏱️</span>
+              </div>
+              <div class="analytics-card-value" id="stats-last-analysis-name" style="font-size: 1.1rem; line-height: 2.2rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">None</div>
+              <p class="analytics-card-desc" id="stats-last-analysis-time">Click to open latest report</p>
+            </a>
+          </div>
+
+          <!-- Two Column Main Bento Grid -->
+          <div class="dashboard-main-grid mt-4" style="gap: var(--spacing-24); margin-top: var(--spacing-24);">
+            <div class="panel dashboard-trend-panel" id="trend-panel-ref" style="grid-column: span 8;">
+              <h3 class="panel-title">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--blue); margin-right: 0.5rem; vertical-align: middle;">
+                  <line x1="18" y1="20" x2="18" y2="10"></line>
+                  <line x1="12" y1="20" x2="12" y2="4"></line>
+                  <line x1="6" y1="20" x2="6" y2="14"></line>
+                </svg>
+                ATS Score Trend Over Time
+              </h3>
+              <p class="section-subtitle">Visual representation of your resume iteration scores</p>
+              
+              <div class="trend-chart-container" style="margin-top: 1.5rem; height: 200px;">
+                <svg id="trend-chart-svg" viewBox="0 0 500 200" width="100%" height="100%">
+                  <defs>
+                    <linearGradient id="chart-glow" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stop-color="var(--emerald)" stop-opacity="0.3"/>
+                      <stop offset="100%" stop-color="var(--emerald)" stop-opacity="0.0"/>
+                    </linearGradient>
+                  </defs>
+                  <line x1="40" y1="20" x2="480" y2="20" stroke="var(--border-color)" stroke-width="0.5" stroke-dasharray="4"/>
+                  <line x1="40" y1="65" x2="480" y2="65" stroke="var(--border-color)" stroke-width="0.5" stroke-dasharray="4"/>
+                  <line x1="40" y1="110" x2="480" y2="110" stroke="var(--border-color)" stroke-width="0.5" stroke-dasharray="4"/>
+                  <line x1="40" y1="155" x2="480" y2="155" stroke="var(--border-color)" stroke-width="0.5" stroke-dasharray="4"/>
+                  <text x="15" y="24" fill="var(--text-muted)" font-size="9" font-weight="600">100</text>
+                  <text x="15" y="69" fill="var(--text-muted)" font-size="9" font-weight="600">75</text>
+                  <text x="15" y="114" fill="var(--text-muted)" font-size="9" font-weight="600">50</text>
+                  <text x="15" y="159" fill="var(--text-muted)" font-size="9" font-weight="600">25</text>
+                  <path id="chart-area" d="" fill="url(#chart-glow)"/>
+                  <path id="chart-line" d="" fill="none" stroke="var(--emerald)" stroke-width="3" stroke-linecap="round"/>
+                  <g id="chart-points"></g>
+                  <g id="chart-x-labels"></g>
+                </svg>
+              </div>
+            </div>
+
+            <div class="panel dashboard-activity-feed" style="grid-column: span 4; display: flex; flex-direction: column;">
+              <h3 class="panel-title">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--amber); margin-right: 0.5rem; vertical-align: middle;">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <polyline points="12 6 12 12 16 14"></polyline>
+                </svg>
+                Recent Activity
+              </h3>
+              <p class="section-subtitle">Chronological record of recent actions in this workspace</p>
+              
+              <div id="dashboard-activity-feed-list" class="activity-feed" style="margin-top: 1.25rem; display: flex; flex-direction: column; gap: var(--spacing-12); flex: 1;">
+                <!-- Dynamically populated -->
+              </div>
+            </div>
+
+            <div class="panel dashboard-recent-analyses-panel" style="grid-column: span 12; margin-top: var(--spacing-8);">
+              <h3 class="panel-title">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--emerald); margin-right: 0.5rem; vertical-align: middle;">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                  <polyline points="14 2 14 8 20 8"></polyline>
+                  <line x1="16" y1="13" x2="8" y2="13"></line>
+                  <line x1="16" y1="17" x2="8" y2="17"></line>
+                  <polyline points="10 9 9 9 8 9"></polyline>
+                </svg>
+                Recent Analyses
+              </h3>
+              <p class="section-subtitle">Catalog of your most recently processed resume documents</p>
+              
+              <div class="table-responsive" style="margin-top: 1.25rem; overflow-x: auto;">
+                <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.9rem;">
+                  <thead>
+                    <tr>
+                      <th style="padding: 0.75rem var(--spacing-8); border-bottom: 2px solid var(--border-color); color: var(--text-muted); font-weight: 700;">Resume Name</th>
+                      <th style="padding: 0.75rem var(--spacing-8); border-bottom: 2px solid var(--border-color); color: var(--text-muted); font-weight: 700;">Target Role</th>
+                      <th style="padding: 0.75rem var(--spacing-8); border-bottom: 2px solid var(--border-color); color: var(--text-muted); font-weight: 700;">Parsed Date</th>
+                      <th style="padding: 0.75rem var(--spacing-8); border-bottom: 2px solid var(--border-color); color: var(--text-muted); font-weight: 700;">ATS Score</th>
+                      <th style="padding: 0.75rem var(--spacing-8); border-bottom: 2px solid var(--border-color); color: var(--text-muted); font-weight: 700;">Status</th>
+                      <th style="padding: 0.75rem var(--spacing-8); border-bottom: 2px solid var(--border-color); color: var(--text-muted); font-weight: 700; text-align: right;">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody id="dashboard-history-summary-body">
+                    <!-- Populated by JS -->
+                  </tbody>
+                </table>
+              </div>
+              <div style="margin-top: 1.5rem; text-align: right; border-top: 1px solid var(--border-color); padding-top: var(--spacing-12);">
+                <a href="history.html" class="btn-text" style="color: var(--emerald); font-size: 0.85rem; font-weight: 700; text-decoration: none; display: inline-flex; align-items: center; gap: 0.25rem;">
+                  View All →
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script type="module" src="js/firebase-config.js"></script>
+  <script type="module" src="js/auth-guard.js"></script>
+  <script type="module" src="js/navigation.js"></script>
+  <script type="module" src="js/dashboard.js"></script>
+</body>
+</html>

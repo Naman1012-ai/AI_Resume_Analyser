@@ -179,7 +179,7 @@ function validateInterviewQuestions(obj) {
     return false;
   }
 
-  const requiredKeys = ['technical', 'projectBased', 'skillGap', 'behavioral', 'hrQuestions'];
+  const requiredKeys = ['technical', 'projectBased', 'behavioral', 'hrQuestions'];
   for (const key of requiredKeys) {
     if (!obj.hasOwnProperty(key)) {
       logger.error('AIResponseValidator', `Interview Questions: Missing required key "${key}"`);
@@ -187,14 +187,22 @@ function validateInterviewQuestions(obj) {
     }
   }
 
+  const hasGapKey = obj.hasOwnProperty('skillGap') || obj.hasOwnProperty('domainKnowledge');
+  if (!hasGapKey) {
+    logger.error('AIResponseValidator', 'Interview Questions: Missing required key "skillGap" or "domainKnowledge"');
+    return false;
+  }
+
   // Normalize
   if (typeof obj.technical === 'string') obj.technical = [obj.technical];
   if (typeof obj.projectBased === 'string') obj.projectBased = [obj.projectBased];
   if (typeof obj.skillGap === 'string') obj.skillGap = [obj.skillGap];
+  if (typeof obj.domainKnowledge === 'string') obj.domainKnowledge = [obj.domainKnowledge];
   if (typeof obj.behavioral === 'string') obj.behavioral = [obj.behavioral];
   if (typeof obj.hrQuestions === 'string') obj.hrQuestions = [obj.hrQuestions];
 
-  for (const key of requiredKeys) {
+  const checkKeys = [...requiredKeys, obj.hasOwnProperty('domainKnowledge') ? 'domainKnowledge' : 'skillGap'];
+  for (const key of checkKeys) {
     if (!Array.isArray(obj[key]) || obj[key].length === 0) {
       logger.error('AIResponseValidator', `Interview Questions: "${key}" must be a non-empty array.`);
       return false;
@@ -231,7 +239,7 @@ function validateConsolidatedRecord(record) {
     logger.error('AIResponseValidator', 'Consolidated Validation: Missing breakdown object.');
     return false;
   }
-  const breakdownKeys = ['contact', 'structure', 'skills', 'experience', 'projects', 'education', 'keywords', 'achievements'];
+  const breakdownKeys = ['contact', 'formatting', 'skills', 'experience', 'projects', 'education', 'keywords', 'achievements'];
   const hasAllBreakdownKeys = breakdownKeys.every(k => typeof record.breakdown[k] === 'number');
   if (!hasAllBreakdownKeys) {
     logger.error('AIResponseValidator', 'Consolidated Validation: Breakdown is missing required category scores.');

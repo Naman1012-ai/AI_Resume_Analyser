@@ -1,0 +1,146 @@
+.avatar-upload-container:hover .avatar-upload-overlay {
+  opacity: 1 !important;
+}
+
+.profile-avatar-circle-wrapper {
+  position: relative;
+}
+
+.comp-tab-btn:hover {
+  color: var(--text-main) !important;
+}
+
+.comp-tab-btn.active {
+  color: var(--emerald) !important;
+}
+
+.history-table-container th {
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  letter-spacing: 0.05em;
+}
+
+.history-table-container td {
+  padding: 1rem;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.history-table-container tr:last-child td {
+  border-bottom: none;
+}
+
+.action-btn-row {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.btn-table-action {
+  background: transparent;
+  border: 1px solid var(--border-color);
+  padding: 0.35rem 0.6rem;
+  border-radius: var(--radius-md);
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 0.75rem;
+  transition: all var(--transition-fast);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.btn-table-action:hover {
+  color: var(--text-main);
+  background: rgba(255,255,255,0.03);
+}
+
+.btn-table-action.delete:hover {
+  color: var(--danger);
+  border-color: var(--danger);
+  background: rgba(239, 68, 68, 0.05);
+}
+
+.btn-table-action.view {
+  background: var(--grad-primary);
+  border: none;
+  color: #030712;
+  font-weight: 700;
+}
+
+.btn-table-action.view:hover {
+  filter: brightness(1.1);
+}
+
+.q-prep-card {
+  padding: 1rem;
+  background: rgba(255,255,255,0.02);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.q-prep-question {
+  font-weight: 600;
+  color: var(--text-main);
+}
+
+.q-prep-answer {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
+/* Inline Save Status Indicator */
+.inline-save-status {
+  color: var(--emerald);
+  pointer-events: none;
+}
+
+.inline-save-status.saving {
+  color: var(--amber, #f59e0b);
+}
+
+.inline-save-status.error {
+  color: var(--danger, #ef4444);
+}
+
+/* Fluid Layout: Main page container tracks sidebar transitions */
+.main-page-container {
+  transition: all 300ms cubic-bezier(0.4, 0, 0.2, 1);
+  min-width: 0;
+  overflow: hidden;
+}
+
+/* Profile grid fluid collapse at narrow viewports */
+@media (max-width: 900px) {
+  .profile-layout-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .profile-left-card {
+    max-width: 100% !important;
+  }
+}
+
+/* Table responsive tightening at medium widths */
+@media (max-width: 720px) {
+  .history-table-container table {
+    min-width: 500px;
+  }
+
+  .btn-table-action {
+    padding: 0.3rem 0.5rem;
+    font-size: 0.7rem;
+  }
+
+  .comp-tab-btn {
+    padding: 0.5rem 0.75rem !important;
+    font-size: 0.78rem !important;
+  }
+}

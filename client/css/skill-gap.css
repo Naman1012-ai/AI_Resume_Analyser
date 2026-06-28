@@ -1,0 +1,81 @@
+.skills-columns-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.25rem;
+  margin-top: 1.5rem;
+}
+
+  .skills-columns-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.skill-col {
+  background: rgba(255, 255, 255, 0.005);
+  border: 1px solid var(--border-color);
+  border-radius: 0.75rem;
+  padding: 1.25rem 1.5rem;
+}
+
+.skill-col h4 {
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+
+.dot.green { background: var(--emerald); box-shadow: 0 0 8px var(--emerald); }
+.dot.red { background: var(--rose); box-shadow: 0 0 8px var(--rose); }
+.dot.blue { background: var(--blue); box-shadow: 0 0 8px var(--blue); }
+
+.mt-3 { margin-top: 1rem; }
+.mt-4 { margin-top: 1.5rem; }
+
+  .skills-columns-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+}
+
+  .skills-columns-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* Empty State & Error State Card */
+.empty-state, .error-state-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 3rem 2rem;
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.015);
+  border: 1px dashed var(--border-color);
+  min-height: 400px;
+}
+
+.empty-state-icon {
+  margin-bottom: 1.5rem;
+  color: var(--text-muted);
+}
+
+.empty-state h3 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+  color: var(--text-main);
+}
+
+.empty-state p {
+  font-size: 0.9rem;
+  color: var(--text-muted);

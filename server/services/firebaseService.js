@@ -486,12 +486,240 @@ const deleteAnalysis = async (analysisId, userId) => {
   }
 };
 
+/**
+ * Renames a single analysis record's resumeName.
+ * @param {string} analysisId
+ * @param {string} userId
+ * @param {string} newName
+ * @returns {Promise<boolean>}
+ */
+const renameAnalysis = async (analysisId, userId, newName) => {
+  if (!isFirebaseInitialized) {
+    throw new Error('Firebase Admin SDK is not initialized.');
+  }
+  if (!analysisId || typeof analysisId !== 'string') {
+    throw new Error('Database Validation Error: analysisId must be a non-empty string.');
+  }
+  if (!userId || typeof userId !== 'string') {
+    throw new Error('Database Validation Error: userId must be a non-empty string.');
+  }
+  if (!newName || typeof newName !== 'string') {
+    throw new Error('Database Validation Error: newName must be a non-empty string.');
+  }
+
+  // If in fallback mode without real credentials, rename in local in-memory store
+  if (!hasCredentials) {
+    logger.warn('Firebase', `⚠️ Running in fallback mode. Renaming analysis ${analysisId} in local in-memory store.`);
+    const item = mockDatabaseStore.get(analysisId);
+    if (item) {
+      item.resumeName = newName;
+    }
+    const userMap = mockDatabaseStore.get(`user_${userId}`);
+    if (userMap) {
+      const userItem = userMap.get(analysisId);
+      if (userItem) {
+        userItem.resumeName = newName;
+      }
+    }
+    return true;
+  }
+
+  try {
+    const db = getDatabase();
+    
+    // Update in user history
+    await db.ref(`users/${userId}/analyses/${analysisId}`).update({ resumeName: newName });
+    
+    // Update in global analyses repository
+    await db.ref(`analyses/${analysisId}`).update({ resumeName: newName });
+    
+    logger.info('Firebase', `✏️ Analysis ${analysisId} successfully renamed to ${newName} for user ${userId}.`);
+    return true;
+  } catch (error) {
+    logger.error('Firebase', `Firebase Database Rename Failed: ${error.message}`, { analysisId, userId, newName });
+    throw new Error(`Firebase Database Rename Failed: ${error.message}`);
+  }
+};
+
+/**
+ * Retrieves global public statistics for unauthenticated landing view.
+ * @returns {Promise<object>} - Public stats object.
+ */
+const getPublicStats = async () => {
+  if (!isFirebaseInitialized) {
+    throw new Error('Firebase Admin SDK is not initialized.');
+  }
+
+  const fallbackStats = {
+    totalAnalyses: 125,
+    avgScore: 74,
+    highestScore: 95,
+    users: 48,
+    resumes: 125,
+    questions: 3125
+  };
+
+  if (!hasCredentials) {
+    logger.warn('Firebase', '⚠️ Running in fallback mode. Calculating public stats from local in-memory store.');
+    let totalAnalyses = 0;
+    let sumScore = 0;
+    let highestScore = 0;
+    let countScored = 0;
+    let totalQuestions = 0;
+    let userKeys = new Set();
+
+    for (const [key, val] of mockDatabaseStore.entries()) {
+      if (key.startsWith('user_')) {
+        const uid = key.replace('user_', '');
+        if (uid === 'anonymous' || uid === 'anonymous-local-dev-uid') continue;
+        userKeys.add(uid);
+      } else if (val && typeof val === 'object' && val.analysisId) {
+        if (val.userId === 'anonymous' || val.userId === 'anonymous-local-dev-uid') continue;
+        totalAnalyses++;
+        const score = val.atsScore || val.score || 0;
+        if (score > 0) {
+          sumScore += score;
+          countScored++;
+          if (score > highestScore) highestScore = score;
+        }
+        if (val.interviewPrep) {
+          const prep = val.interviewPrep;
+          totalQuestions += (prep.technical?.length || 0) +
+                           (prep.projectBased?.length || 0) +
+                           (prep.skillGap?.length || 0) +
+                           (prep.behavioral?.length || 0) +
+                           (prep.hrQuestions?.length || 0);
+        }
+      }
+    }
+
+    return {
+      totalAnalyses: totalAnalyses || fallbackStats.totalAnalyses,
+      avgScore: countScored ? Math.round(sumScore / countScored) : fallbackStats.avgScore,
+      highestScore: highestScore || fallbackStats.highestScore,
+      users: userKeys.size || fallbackStats.users,
+      resumes: totalAnalyses || fallbackStats.resumes,
+      questions: totalQuestions || fallbackStats.questions
+    };
+  }
+
+  try {
+    const db = getDatabase();
+    
+    const [usersSnap, analysesSnap] = await Promise.all([
+      db.ref('users').once('value'),
+      db.ref('analyses').once('value')
+    ]);
+
+    const usersVal = usersSnap.val() || {};
+    const analysesVal = analysesSnap.val() || {};
+
+    delete usersVal['anonymous'];
+    delete usersVal['anonymous-local-dev-uid'];
+    const usersCount = Object.keys(usersVal).length || fallbackStats.users;
+
+    let sumScore = 0;
+    let highest = 0;
+    let countScored = 0;
+    let totalQuestions = 0;
+    let authenticatedAnalysesCount = 0;
+
+    for (const key in analysesVal) {
+      const item = analysesVal[key];
+      if (item && typeof item === 'object') {
+        if (item.userId === 'anonymous' || item.userId === 'anonymous-local-dev-uid') continue;
+        authenticatedAnalysesCount++;
+        const score = item.atsScore || item.score || 0;
+        if (score > 0) {
+          sumScore += score;
+          countScored++;
+          if (score > highest) highest = score;
+        }
+        if (item.interviewPrep) {
+          const prep = item.interviewPrep;
+          totalQuestions += (prep.technical?.length || 0) +
+                           (prep.projectBased?.length || 0) +
+                           (prep.skillGap?.length || 0) +
+                           (prep.behavioral?.length || 0) +
+                           (prep.hrQuestions?.length || 0);
+        }
+      }
+    }
+
+    return {
+      totalAnalyses: authenticatedAnalysesCount,
+      avgScore: countScored ? Math.round(sumScore / countScored) : fallbackStats.avgScore,
+      highestScore: highest || fallbackStats.highestScore,
+      users: usersCount,
+      resumes: authenticatedAnalysesCount,
+      questions: totalQuestions || fallbackStats.questions
+    };
+  } catch (error) {
+    logger.error('Firebase', `Firebase Database Public Stats Aggregation Failed: ${error.message}`);
+    return fallbackStats;
+  }
+};
+
+/**
+ * Deletes all user data from Firebase RTDB (analyses + profile).
+ * @param {string} userId
+ * @returns {Promise<boolean>}
+ */
+const deleteUserAccount = async (userId) => {
+  if (!isFirebaseInitialized) {
+    throw new Error('Firebase Admin SDK is not initialized.');
+  }
+  if (!userId || typeof userId !== 'string') {
+    throw new Error('Database Validation Error: userId must be a non-empty string.');
+  }
+
+  // If in fallback mode without real credentials, delete from local mockDatabaseStore
+  if (!hasCredentials) {
+    logger.warn('Firebase', `⚠️ Running in fallback mode. Wiping user data for user: ${userId}`);
+    const userMap = mockDatabaseStore.get(`user_${userId}`);
+    if (userMap) {
+      for (const analysisId of userMap.keys()) {
+        mockDatabaseStore.delete(analysisId);
+      }
+      mockDatabaseStore.delete(`user_${userId}`);
+    }
+    return true;
+  }
+
+  try {
+    const db = getDatabase();
+    
+    // 1. Get all analysis IDs for this user
+    const userAnalysesSnapshot = await db.ref(`users/${userId}/analyses`).once('value');
+    if (userAnalysesSnapshot.exists()) {
+      const analyses = userAnalysesSnapshot.val();
+      const deletePromises = Object.keys(analyses).map(analysisId => {
+        return db.ref(`analyses/${analysisId}`).remove();
+      });
+      // Delete all user analyses from global repository
+      await Promise.all(deletePromises);
+    }
+
+    // 2. Delete the user node completely
+    await db.ref(`users/${userId}`).remove();
+
+    logger.info('Firebase', `💀 User ${userId} account and all associated analyses successfully purged from Firebase RTDB.`);
+    return true;
+  } catch (error) {
+    logger.error('Firebase', `Firebase User Data Purge Failed: ${error.message}`, { userId });
+    throw new Error(`Firebase User Data Purge Failed: ${error.message}`);
+  }
+};
+
 module.exports = {
   saveAnalysis,
   getUserHistory,
   getAnalysisById,
   getDashboardStats,
+  getPublicStats,
   deleteAnalysis,
+  renameAnalysis,
+  deleteUserAccount,
   isInitialized: () => isFirebaseInitialized,
   hasCredentials: () => hasCredentials
 };

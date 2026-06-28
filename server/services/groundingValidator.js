@@ -246,12 +246,13 @@ function validateInterviewQuestions(parsed, resumeText, targetRole = 'Software E
     technical: [],
     projectBased: [],
     skillGap: [],
+    domainKnowledge: [],
     behavioral: [],
     hrQuestions: []
   };
   const droppedCount = { count: 0 };
 
-  const categories = ['technical', 'projectBased', 'skillGap'];
+  const categories = ['technical', 'projectBased', 'skillGap', 'domainKnowledge'];
   const exemptCategories = ['behavioral', 'hrQuestions'];
 
   // Process exempt categories (only require verifyGrounding)
@@ -295,7 +296,10 @@ function validateInterviewQuestions(parsed, resumeText, targetRole = 'Software E
     }
   }
 
-  const totalGroundedCount = (parsed.technical || []).length + (parsed.projectBased || []).length + (parsed.skillGap || []).length;
+  const totalGroundedCount = (parsed.technical || []).length + 
+                             (parsed.projectBased || []).length + 
+                             (parsed.skillGap || []).length + 
+                             (parsed.domainKnowledge || []).length;
 
   return {
     validated,

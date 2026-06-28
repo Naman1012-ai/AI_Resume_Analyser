@@ -1,0 +1,190 @@
+/* Interview Prep Professional Interactive Flashcard Deck */
+.interview-results {
+  margin-top: 1.5rem;
+}
+
+.interview-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1.5rem;
+}
+
+  .interview-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+  .interview-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Flashcard Container Box */
+.question-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 1rem;
+  overflow: hidden;
+  box-shadow: var(--glow-card);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  display: flex;
+  flex-direction: column;
+  transition: var(--transition-smooth);
+}
+
+.question-card:hover {
+  border-color: rgba(255, 255, 255, 0.12);
+  transform: translateY(-2px);
+}
+
+.q-header {
+  padding: 0.85rem 1.25rem;
+  font-size: 0.85rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #030712;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.q-header.technical { background: var(--grad-primary); }
+.q-header.project { background: var(--grad-blue); color: #fff; }
+.q-header.skillgap { background: var(--grad-rose); color: #fff; }
+.q-header.behavioral { background: var(--grad-purple); color: #fff; }
+.q-header.hr { background: var(--grad-amber); }
+
+.q-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1rem;
+  flex: 1;
+}
+
+/* Individual Interactive Question Flashcard */
+.q-item {
+  background: rgba(255, 255, 255, 0.015);
+  border: 1px solid var(--border-color);
+  border-left: 4px solid var(--emerald);
+  border-radius: 0.65rem;
+  padding: 0.9rem 1.1rem;
+  font-size: 0.85rem;
+  color: var(--text-main);
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.85rem;
+  transition: var(--transition-smooth);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+  position: relative;
+}
+
+.question-card:has(.technical) .q-item { border-left-color: var(--emerald); }
+.question-card:has(.project) .q-item { border-left-color: var(--blue); }
+.question-card:has(.skillgap) .q-item { border-left-color: var(--rose); }
+.question-card:has(.behavioral) .q-item { border-left-color: var(--purple); }
+.question-card:has(.hr) .q-item { border-left-color: var(--amber); }
+
+.q-item:last-child {
+  border-bottom: 1px solid var(--border-color);
+}
+
+.q-item:hover {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.15);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 15px rgba(0, 0, 0, 0.25);
+}
+
+.q-item-text {
+  flex: 1;
+  line-height: 1.5;
+  font-weight: 500;
+}
+
+.btn-copy-q {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 0.35rem 0.5rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: var(--transition-smooth);
+  flex-shrink: 0;
+}
+
+.btn-copy-q:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.2);
+  transform: scale(1.05);
+}
+
+.btn-copy-q:hover {
+  color: #fff;
+}
+
+/* Skeleton Loading Screens */
+.skeleton-container {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  padding: 1rem 0;
+}
+
+.skeleton-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.skeleton-circle {
+  width: 70px;
+  height: 70px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.skeleton-text-group {
+  flex: 1;
+}
+
+.skeleton-line {
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 4px;
+}
+
+.w-48 { width: 12rem; }
+.w-24 { width: 6rem; }
+.h-6 { height: 1.5rem; }
+.h-4 { height: 1rem; }
+.h-40 { height: 10rem; }
+
+.skeleton-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem;
+}
+
+.skeleton-card {
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 0.75rem;
+}
+
+.animate-pulse {
+  animation: pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+

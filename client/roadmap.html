@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Career Roadmap - ATS Pilot</title>
+  <link rel="stylesheet" href="css/style.css">
+  
+  
+  
+  
+</head>
+<body>
+
+  <!-- Injected Header placeholder -->
+  <div id="app-header-placeholder"></div>
+
+  <!-- Scalable Routed Layout -->
+  <div class="dashboard-layout">
+    <!-- Injected Sidebar placeholder -->
+    <div id="app-sidebar-placeholder"></div>
+
+    <main class="main-page-container">
+      <div id="page-analysis-report" class="page-view">
+        
+        <!-- Dedicated Report Header Bar -->
+        <div class="report-header-bar" style="display: flex; justify-content: space-between; align-items: center; padding: 1rem 1.5rem; background: rgba(15, 23, 42, 0.6); border: 1px solid var(--border-color); border-radius: var(--radius-xl); margin-bottom: 2rem; backdrop-filter: blur(12px);">
+          <div class="report-header-left" style="display: flex; flex-direction: column; gap: 0.25rem;">
+            <h3 id="report-header-name" style="margin: 0; font-size: 1.25rem; font-weight: 700; color: var(--text-main);">Resume Name</h3>
+            <div style="display: flex; align-items: center; gap: 0.75rem; font-size: 0.8rem; color: var(--text-muted);">
+              <span id="report-header-role">Target Role: Software Engineer</span>
+              <span style="color: var(--border-color);">|</span>
+              <span id="report-header-date">Parsed 2 hours ago</span>
+            </div>
+          </div>
+          <div class="report-header-right" style="display: flex; align-items: center; gap: 1rem;">
+            <span id="report-header-badge" class="badge-ats" style="font-size: 0.75rem; font-weight: 700; padding: 0.35rem 0.75rem; border-radius: 9999px; border: 1px solid var(--border-color);">Optimized</span>
+            <div id="report-header-score" style="font-size: 1.75rem; font-weight: 800; color: var(--emerald); font-family: 'Outfit', sans-serif;">92/100</div>
+          </div>
+        </div>
+
+        <div class="report-layout-grid" style="display: grid; grid-template-columns: 240px 1fr; gap: var(--spacing-32); align-items: start; position: relative; width: 100%;">
+          
+          <!-- Floating Sticky Index Sidebar -->
+          <aside class="report-section-index-sidebar" style="position: sticky; top: 100px; display: flex; flex-direction: column; gap: 0.5rem; max-height: calc(100vh - 140px); overflow-y: auto; padding-right: 0.5rem;">
+            <div style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; padding-left: 0.8rem; margin-bottom: 0.5rem;">Report Pages</div>
+            <a href="analysis.html" class="index-link">ATS Score Audit</a>
+            <a href="skill-gap.html" class="index-link">Skill Gap Analysis</a>
+            <a href="interview.html" class="index-link">Interview Prep</a>
+            <a href="roadmap.html" class="index-link active">Career Roadmap</a>
+          </aside>
+
+          <!-- Main Report Document Area -->
+          <div class="report-document-area" style="display: flex; flex-direction: column; gap: var(--spacing-32); overflow: hidden; width: 100%;">
+            
+            <section id="report-roadmap" class="report-section panel" style="scroll-margin-top: 120px;">
+              <h3 class="panel-title">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color: var(--blue); margin-right: 0.5rem; vertical-align: middle;">
+                  <polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"></polygon>
+                  <line x1="9" y1="3" x2="9" y2="18"></line>
+                  <line x1="15" y1="6" x2="15" y2="21"></line>
+                </svg>
+                Curated Learning Roadmap
+              </h3>
+              <p class="section-subtitle">Structured career roadmap to close identified gaps</p>
+              <div class="roadmap-timeline" id="roadmap-timeline" style="margin-top: 1.5rem;"></div>
+            </section>
+
+          </div>
+
+        </div>
+
+      </div>
+    </main>
+  </div>
+
+  <script type="module" src="js/firebase-config.js"></script>
+  <script type="module" src="js/auth-guard.js"></script>
+  <script type="module" src="js/navigation.js"></script>
+  <script type="module" src="js/roadmap.js"></script>
+</body>
+</html>

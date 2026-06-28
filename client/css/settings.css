@@ -1,0 +1,81 @@
+.switch-slider::before {
+  position: absolute;
+  content: "";
+  height: 16px;
+  width: 16px;
+  left: 3px;
+  bottom: 3px;
+  background-color: var(--text-muted);
+  border-radius: 50%;
+  transition: .4s;
+}
+
+input:checked + .switch-slider {
+  background-color: var(--emerald);
+  border-color: var(--emerald);
+}
+
+input:checked + .switch-slider::before {
+  transform: translateX(20px);
+  background-color: #030712;
+}
+
+.danger-zone-panel h3 {
+  color: #f43f5e;
+}
+
+/* Accordion layout classes */
+.accordion-item.active .accordion-content {
+  display: block !important;
+}
+
+.accordion-item.active .chevron-icon {
+  transform: rotate(180deg);
+}
+
+.accordion-trigger:hover {
+  background: rgba(255,255,255,0.02) !important;
+}
+
+/* Danger Delete Button */
+.btn-danger-delete {
+  background: #e11d48 !important;
+}
+
+.btn-danger-delete:hover {
+  background: #be123c !important;
+  box-shadow: 0 6px 20px rgba(225, 29, 72, 0.4) !important;
+  transform: translateY(-1px);
+}
+
+.btn-danger-delete:active {
+  background: #9f1239 !important;
+  transform: translateY(0);
+  box-shadow: 0 2px 8px rgba(225, 29, 72, 0.25) !important;
+}
+
+.btn-danger-delete:focus-visible {
+  outline: 2px solid #f43f5e;
+  outline-offset: 2px;
+}
+
+.btn-danger-delete:disabled {
+  background: #6b7280 !important;
+  border-color: #6b7280 !important;
+  cursor: not-allowed;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+/* Light theme overrides */
+.light-theme .accordion-trigger:hover {
+  background: rgba(0, 0, 0, 0.03) !important;
+}
+
+.light-theme .accordion-content {
+  background: #f8fafc !important;
+}
+
+.light-theme #sec-danger .accordion-content {
+  background: rgba(244, 63, 94, 0.04) !important;
+}

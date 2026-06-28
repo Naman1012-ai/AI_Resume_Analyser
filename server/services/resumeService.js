@@ -359,35 +359,45 @@ async function processInterviewQuestions(userId, body) {
     }
   }
 
-  // Request Validation
-  if (!resumeText || typeof resumeText !== 'string' || resumeText.trim().length === 0) {
-    const error = new Error('Resume text content is required.');
-    error.statusCode = 400;
-    error.code = 'INVALID_INPUT';
-    throw error;
-  }
-
-  if (resumeText.length > constants.BODY_LIMITS.RESUME_TEXT_MAX_LENGTH) {
-    const error = new Error(`Resume text content exceeds maximum limit of ${constants.BODY_LIMITS.RESUME_TEXT_MAX_LENGTH} characters.`);
-    error.statusCode = 400;
-    error.code = 'TEXT_TOO_LONG';
-    throw error;
-  }
-
-  const projects = aiAnalyzer.extractProjectsFromText(resumeText);
+  const isStandalone = !analysisId && targetRole;
   
-  if (
-    !targetRole || typeof targetRole !== 'string' || targetRole.trim() === '' ||
-    !detectedSkills || !Array.isArray(detectedSkills) || detectedSkills.length === 0 ||
-    !projects || projects.length === 0
-  ) {
-    const error = new Error('Interview preparation data unavailable.');
-    error.statusCode = 400;
-    error.code = 'PREPARATION_DATA_UNAVAILABLE';
-    throw error;
+  if (isStandalone) {
+    if (!resumeText) resumeText = "Standalone Mode";
+    if (!detectedSkills) detectedSkills = [];
+    if (!missingSkills) missingSkills = [];
+  } else {
+    // Request Validation
+    if (!resumeText || typeof resumeText !== 'string' || resumeText.trim().length === 0) {
+      const error = new Error('Resume text content is required.');
+      error.statusCode = 400;
+      error.code = 'INVALID_INPUT';
+      throw error;
+    }
+
+    if (resumeText.length > constants.BODY_LIMITS.RESUME_TEXT_MAX_LENGTH) {
+      const error = new Error(`Resume text content exceeds maximum limit of ${constants.BODY_LIMITS.RESUME_TEXT_MAX_LENGTH} characters.`);
+      error.statusCode = 400;
+      error.code = 'TEXT_TOO_LONG';
+      throw error;
+    }
   }
 
-  const candidateProfile = candidateProfiler.buildCandidateProfile(
+  const projects = isStandalone ? [] : aiAnalyzer.extractProjectsFromText(resumeText);
+  
+  if (!isStandalone) {
+    if (
+      !targetRole || typeof targetRole !== 'string' || targetRole.trim() === '' ||
+      !detectedSkills || !Array.isArray(detectedSkills) || detectedSkills.length === 0 ||
+      !projects || projects.length === 0
+    ) {
+      const error = new Error('Interview preparation data unavailable.');
+      error.statusCode = 400;
+      error.code = 'PREPARATION_DATA_UNAVAILABLE';
+      throw error;
+    }
+  }
+
+  const candidateProfile = isStandalone ? null : candidateProfiler.buildCandidateProfile(
     resumeText,
     targetRole || 'Software Engineer',
     detectedSkills || [],
@@ -396,10 +406,12 @@ async function processInterviewQuestions(userId, body) {
     projects || []
   );
 
-  const difficultyMetadata = difficultyEngine.generateDifficultyMetadata(
-    candidateProfile,
-    atsAnalysis?.score || atsAnalysis?.atsScore || 0
-  );
+  const difficultyMetadata = isStandalone
+    ? difficultyEngine.generateStandaloneDifficulty(targetRole)
+    : difficultyEngine.generateDifficultyMetadata(
+        candidateProfile,
+        atsAnalysis?.score || atsAnalysis?.atsScore || 0
+      );
 
   // Generate Interview Questions
   let result;
@@ -430,9 +442,11 @@ async function processInterviewQuestions(userId, body) {
         dbRecord.interviewPrep = {
           technical: result.technical,
           projectBased: result.projectBased,
-          skillGap: result.skillGap,
+          skillGap: result.skillGap || null,
+          domainKnowledge: result.domainKnowledge || null,
           behavioral: result.behavioral,
-          hrQuestions: result.hrQuestions
+          hrQuestions: result.hrQuestions,
+          gradingRubric: result.gradingRubric || null
         };
         await firebaseService.saveAnalysis(analysisId, dbRecord);
       }
@@ -444,9 +458,11 @@ async function processInterviewQuestions(userId, body) {
   return {
     technical: result.technical,
     projectBased: result.projectBased,
-    skillGap: result.skillGap,
+    skillGap: result.skillGap || null,
+    domainKnowledge: result.domainKnowledge || null,
     behavioral: result.behavioral,
-    hrQuestions: result.hrQuestions
+    hrQuestions: result.hrQuestions,
+    gradingRubric: result.gradingRubric || null
   };
 }
 

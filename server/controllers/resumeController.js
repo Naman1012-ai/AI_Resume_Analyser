@@ -87,6 +87,96 @@ exports.analyzeResume = async (req, res, next) => {
 };
 
 /**
+ * @route POST /api/public/analyze
+ * @desc Handle resume upload and analysis for guest users (anonymous).
+ * @access Public
+ */
+exports.analyzePublicResume = async (req, res, next) => {
+  const startTime = Date.now();
+  logger.info('Pipeline', '🚀 Starting public resume analysis pipeline...');
+  
+  let filePathToDelete = null;
+
+  try {
+    // 1. File Validation
+    if (!req.file) {
+      logger.error('Pipeline', 'Validation Error: No file uploaded.');
+      const error = new Error('No file uploaded. Please select a PDF resume file.');
+      error.statusCode = 400;
+      error.code = 'MISSING_FILE';
+      return next(error);
+    }
+
+    const { path: filePath, originalname } = req.file;
+    filePathToDelete = filePath;
+    const userId = 'anonymous';
+    logger.info('Pipeline', `📄 [STAGE 1: Receipt] Public file received: "${originalname}"`);
+
+    const { targetRole } = req.body;
+
+    const { analysisId, record } = await resumeService.processResumeAnalysis(userId, req.file, targetRole);
+
+    const duration = Date.now() - startTime;
+    logger.info('Pipeline', `⏱️ Public resume analysis completed in ${duration}ms.`);
+
+    return res.status(200).json({
+      success: true,
+      analysisId: analysisId,
+      userId: userId,
+      resumeName: originalname,
+      targetRole: targetRole,
+      score: record.score,
+      breakdown: record.breakdown,
+      explanations: record.explanations,
+      strengths: record.strengths,
+      weaknesses: record.weaknesses,
+      recommendations: record.recommendations,
+      atsTips: record.atsTips,
+      rewriteSuggestions: record.rewriteSuggestions,
+      missingKeywords: record.missingKeywords,
+      missingSections: record.missingSections,
+      recruiterFeedback: record.recruiterFeedback,
+      skillGap: record.skillGap,
+      interviewPrep: record.interviewPrep,
+      createdAt: record.createdAt
+    });
+  } catch (error) {
+    logger.error('Pipeline', `Public Resume Analysis Pipeline Error: ${error.message}`);
+    next(error);
+  } finally {
+    // Clean up uploaded file from local server disk
+    if (filePathToDelete) {
+      const fs = require('fs');
+      fs.unlink(filePathToDelete, (err) => {
+        if (err) {
+          logger.error('Pipeline', `Failed to clean up uploaded file: ${filePathToDelete}`, { error: err.message });
+        } else {
+          logger.info('Pipeline', `🧹 Successfully cleaned up uploaded file from disk: ${filePathToDelete}`);
+        }
+      });
+    }
+  }
+};
+
+/**
+ * @route GET /api/public/stats
+ * @desc Get global aggregated metrics from Firebase for unauthenticated landing stats.
+ * @access Public
+ */
+exports.getPublicStats = async (req, res, next) => {
+  try {
+    const stats = await firebaseService.getPublicStats();
+    return res.status(200).json({
+      success: true,
+      stats: stats
+    });
+  } catch (error) {
+    logger.error('PublicStats', `Error aggregating public stats: ${error.message}`);
+    next(error);
+  }
+};
+
+/**
  * @route GET /api/history
  * @desc Get upload and analysis history for the logged-in user.
  * @access Private
@@ -253,8 +343,10 @@ exports.generateInterviewQuestions = async (req, res, next) => {
       technical: result.technical,
       projectBased: result.projectBased,
       skillGap: result.skillGap,
+      domainKnowledge: result.domainKnowledge,
       behavioral: result.behavioral,
-      hrQuestions: result.hrQuestions
+      hrQuestions: result.hrQuestions,
+      gradingRubric: result.gradingRubric
     });
     
   } catch (error) {
@@ -327,6 +419,90 @@ exports.deleteAnalysis = async (req, res, next) => {
     return res.status(200).json({
       success: true,
       message: 'Analysis deleted successfully.'
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * @route PUT /api/analysis/:id/rename
+ * @desc Rename a single analysis record by ID.
+ * @access Private
+ */
+exports.renameAnalysis = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { resumeName } = req.body;
+    const userId = req.user ? req.user.uid : 'anonymous';
+    if (userId === 'anonymous' && process.env.NODE_ENV !== 'development') {
+      const error = new Error('Access denied. Authentication required.');
+      error.statusCode = 401;
+      error.code = 'UNAUTHORIZED';
+      return next(error);
+    }
+    if (!resumeName || typeof resumeName !== 'string' || !resumeName.trim()) {
+      const error = new Error('resumeName is required and must be a non-empty string.');
+      error.statusCode = 400;
+      error.code = 'BAD_REQUEST';
+      return next(error);
+    }
+
+    logger.info('RenameAnalysis', `✏️ Request to rename analysis ID: ${id} to "${resumeName}" by User ID: ${userId}`);
+
+    // Verify record exists first
+    const analysis = await firebaseService.getAnalysisById(id);
+    if (!analysis) {
+      const error = new Error('Analysis record not found.');
+      error.statusCode = 404;
+      error.code = 'NOT_FOUND';
+      return next(error);
+    }
+
+    // Verify ownership
+    if (analysis.userId !== userId) {
+      logger.warn('RenameAnalysis', `Access denied: User ${userId} tried to rename record owned by ${analysis.userId}`);
+      const error = new Error('Access denied. You are not authorized to rename this analysis.');
+      error.statusCode = 403;
+      error.code = 'FORBIDDEN';
+      return next(error);
+    }
+
+    // Rename
+    await firebaseService.renameAnalysis(id, userId, resumeName.trim());
+
+    return res.status(200).json({
+      success: true,
+      message: 'Analysis renamed successfully.'
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * @route DELETE /api/user
+ * @desc Complete user account data purge from database.
+ * @access Private
+ */
+exports.deleteUserAccount = async (req, res, next) => {
+  try {
+    const userId = req.user ? req.user.uid : 'anonymous';
+    if (userId === 'anonymous' && process.env.NODE_ENV !== 'development') {
+      const error = new Error('Access denied. Authentication required.');
+      error.statusCode = 401;
+      error.code = 'UNAUTHORIZED';
+      return next(error);
+    }
+
+    logger.info('DeleteUserAccount', `💀 Purging all user data for user ID: ${userId}`);
+
+    // Call service to wipe user analyses + database records
+    await firebaseService.deleteUserAccount(userId);
+
+    return res.status(200).json({
+      success: true,
+      message: 'All user data has been successfully purged.'
     });
   } catch (error) {
     next(error);

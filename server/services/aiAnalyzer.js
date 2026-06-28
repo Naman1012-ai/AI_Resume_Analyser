@@ -1005,12 +1005,22 @@ const getMockInterviewQuestions = (targetRole = 'Software Engineer', detectedSki
     "Why are you looking to make a transition from your current position or project at this time?"
   ];
 
+  const gradingRubric = [
+    { category: "Technical questions", criteria: "Shows depth of understanding, mentions design patterns, and highlights scaling considerations.", excellentScoreGuidelines: "Mentions specific language or runtime paradigms verbatim, demonstrating deep production experience." },
+    { category: "Project-based questions", criteria: "Explains architecture patterns, trade-offs, and scaling bottlenecks.", excellentScoreGuidelines: "Provides concrete metrics (e.g. latency, throughput improvements) and detailed design diagrams." },
+    { category: "Domain Knowledge Benchmarks", criteria: "Demonstrates eagerness to learn and general conceptual familiarity.", excellentScoreGuidelines: "Draws analogies to existing skills and maps out a clear learning path for the new tool." },
+    { category: "Behavioral questions", criteria: "Displays emotional intelligence, ownership mindset, and collaborative communication.", excellentScoreGuidelines: "Uses the STAR method (Situation, Task, Action, Result) with clear team outcomes." },
+    { category: "HR questions", criteria: "Communicates career goals and alignment with company culture.", excellentScoreGuidelines: "Aligns personal growth with company mission, demonstrating longevity and passion." }
+  ];
+
   return {
     technical: techQuestions,
     projectBased: projectQuestions,
     skillGap: gapQuestions,
+    domainKnowledge: gapQuestions,
     behavioral: behavioral,
-    hrQuestions: hrQuestions
+    hrQuestions: hrQuestions,
+    gradingRubric: gradingRubric
   };
 };
 
@@ -1087,16 +1097,21 @@ const extractHttpStatus = (error) => {
 };
 
 /**
- * Unified helper to execute an AI API request with up to 2 automatic retries on transient failures.
+ * Unified helper to execute an AI API request with up to automatic retries and model cycling failovers.
  * Returns parsed JSON object if successful, or throws a user-friendly error on final failure.
  */
 const executeWithRetry = async (requestId, modelName, fetchFunc, validatorFunc) => {
-  let attempt = 0; // 0 = first attempt, 1 = retry 1, 2 = retry 2
+  let attempt = 0;
+  let modelIndex = OPENROUTER_MODELS.indexOf(modelName);
+  if (modelIndex === -1) modelIndex = 0;
+
+  const maxAttempts = Math.max(3, OPENROUTER_MODELS.length);
   
-  while (attempt <= 2) {
+  while (attempt < maxAttempts) {
+    const currentModel = OPENROUTER_MODELS[(modelIndex + attempt) % OPENROUTER_MODELS.length] || 'openrouter/free';
     const runStartTime = Date.now();
     try {
-      const resultString = await fetchFunc(modelName);
+      const resultString = await fetchFunc(currentModel);
       
       if (!resultString || resultString.trim().length === 0) {
         throw new Error('Received empty response from AI provider.');
@@ -1111,19 +1126,20 @@ const executeWithRetry = async (requestId, modelName, fetchFunc, validatorFunc) 
       }
       
       const duration = Date.now() - runStartTime;
-      logger.info('AIAnalyzer', `[Req ID: ${requestId}] ✅ Success. Model: ${modelName}, Duration: ${duration}ms, Attempt: ${attempt + 1}/3, Final result: Success.`);
+      logger.info('AIAnalyzer', `[Req ID: ${requestId}] ✅ Success. Model: ${currentModel}, Duration: ${duration}ms, Attempt: ${attempt + 1}/${maxAttempts}, Final result: Success.`);
       return parsed;
       
     } catch (err) {
       const duration = Date.now() - runStartTime;
       const status = extractHttpStatus(err);
       
-      logger.error('AIAnalyzer', `[Req ID: ${requestId}] ❌ Attempt ${attempt + 1}/3 failed. Model: ${modelName}, Duration: ${duration}ms, HTTP status: ${status || 'N/A'}, Failure reason: ${err.message}`);
+      logger.error('AIAnalyzer', `[Req ID: ${requestId}] ❌ Attempt ${attempt + 1}/${maxAttempts} failed. Model: ${currentModel}, Duration: ${duration}ms, HTTP status: ${status || 'N/A'}, Failure reason: ${err.message}`);
       
       attempt++;
-      if (attempt <= 2 && !err.isSchemaFailure && !(err instanceof SyntaxError) && isTransientError(err)) {
+      if (attempt < maxAttempts && !err.isSchemaFailure && !(err instanceof SyntaxError) && isTransientError(err)) {
+        const nextModel = OPENROUTER_MODELS[(modelIndex + attempt) % OPENROUTER_MODELS.length] || 'openrouter/free';
         const delay = attempt === 1 ? 1000 : 2000;
-        logger.info('AIAnalyzer', `[Req ID: ${requestId}] 🕒 Retrying automatically (Attempt ${attempt + 1}/3) in ${delay}ms due to transient error...`);
+        logger.info('AIAnalyzer', `[Req ID: ${requestId}] 🕒 Retrying with model ${nextModel} (Attempt ${attempt + 1}/${maxAttempts}) in ${delay}ms due to transient error...`);
         await sleep(delay);
       } else {
         logger.error('AIAnalyzer', `[Req ID: ${requestId}] 🛑 Request pipeline terminated. Final result: Failure.`);
@@ -1296,7 +1312,12 @@ The JSON response must conform exactly to this schema:
     return true;
   };
 
-  return await executeWithRetry(requestId, OPENROUTER.MODEL_ID, fetchFunc, validatorFunc);
+  try {
+    return await executeWithRetry(requestId, OPENROUTER.MODEL_ID, fetchFunc, validatorFunc);
+  } catch (error) {
+    logger.warn('AIAnalyzer', `⚠️ API execution failed. Falling back to high-fidelity mock data for role "${targetRole}" to prevent pipeline crash. Error: ${error.message}`);
+    return getMockRoleBasedAts(targetRole);
+  }
 };
 
 /**
@@ -1404,7 +1425,12 @@ Do not include any preamble, introduction, markdown code block backticks (like \
     return true;
   };
 
-  return await executeWithRetry(requestId, OPENROUTER.MODEL_ID, fetchFunc, validatorFunc);
+  try {
+    return await executeWithRetry(requestId, OPENROUTER.MODEL_ID, fetchFunc, validatorFunc);
+  } catch (error) {
+    logger.warn('AIAnalyzer', `⚠️ Skill gap API execution failed. Falling back to high-fidelity mock data for role "${role}" to prevent pipeline crash. Error: ${error.message}`);
+    return getMockSkillGap(role, resumeText, detectedSkills);
+  }
 };
 
 /**
@@ -1432,34 +1458,70 @@ const generateInterviewQuestions = async (resumeText, atsAnalysis = null, detect
     return getMockInterviewQuestions(targetRole, detectedSkills, missingSkills, resumeText);
   }
 
-  const systemPrompt = `You are an expert technical interviewer and talent evaluator.
+  const isStandalone = !resumeText || resumeText === "Standalone Mode";
+  const requestId = `iq_${crypto.randomUUID()}`;
+  const timestamp = new Date().toISOString();
+  
+  const systemPrompt = isStandalone
+    ? `You are an expert technical interviewer and talent evaluator.
+Generate exactly 25 customized interview questions (exactly 5 in each of the 5 categories) purely tailored to the target role: "${targetRole || 'Software Engineer'}" based strictly on its industry standards.
+Adapt the technical depth, projects, and contextual scenarios to match standard expectations and difficulties for a professional in this specific role.
 
-Analyze the candidate's resume content, specifically focusing on their skills, projects, education, and work experience, along with their target role and detected skill gaps.
+To ensure deep variance and prevent duplication across multiple requests, you must explore different angles of the core competencies (e.g., swapping specific system design scenarios, varying architectural trade-offs, or rotating problem-solving behavioral prompts).
 
-Generate exactly 25 customized interview questions (exactly 5 in each of the 5 categories). You must follow these strict rules:
-1. technical: exactly 5 questions focusing on technologies mentioned in the candidate's resume, each containing a verbatim "source_evidence" substring from the resume justifying the skill.
-2. projectBased: exactly 5 questions focusing on projects listed in the candidate's resume, each containing a verbatim "source_evidence" substring.
-3. skillGap: exactly 5 questions targeting missing keywords or skills identified in the skill gaps, each containing a verbatim "source_evidence" substring showing the missing skill context.
-4. behavioral: exactly 5 behavioral questions tailored to the candidate's experience. Grounding not required.
-5. hrQuestions: exactly 5 HR/career questions tailored to their path. Grounding not required.
+You must follow these strict rules:
+1. technical: exactly 5 questions focusing on core technologies, concepts, and systems expected for the target role. The "source_evidence" field should contain the key technology name or standard.
+2. projectBased: exactly 5 questions focusing on common project architectures, design choices, database designs, or builds expected for this role. The "source_evidence" field should contain a standard project concept.
+3. domainKnowledge: exactly 5 questions focusing on core domain knowledge and technical benchmarks expected for this role. The "source_evidence" field should contain the key competency or standard name.
+4. behavioral: exactly 5 behavioral questions tailored to this role's collaboration/delivery environment. Grounding not required.
+5. hrQuestions: exactly 5 HR/career path questions tailored to this role. Grounding not required.
+
+You must also include a grading rubric containing general evaluation benchmarks/rubrics for grading the candidate answers in each category.
 
 You must return ONLY a valid JSON object containing these exact keys:
 - "technical": array of objects { question: string, source_evidence: string }
 - "projectBased": array of objects { question: string, source_evidence: string }
-- "skillGap": array of objects { question: string, source_evidence: string }
+- "domainKnowledge": array of objects { question: string, source_evidence: string }
 - "behavioral": array of strings (the questions)
 - "hrQuestions": array of strings (the questions)
+- "gradingRubric": array of objects { category: string, criteria: string, excellentScoreGuidelines: string } (generate exactly 5 objects matching the 5 categories of questions above)
+
+Do not include any preamble, introduction, markdown code block backticks (like \`\`\`json), or trailing notes. The response must start with { and end with }`
+    : `You are an expert technical interviewer and talent evaluator.
+
+Analyze the candidate's resume content, specifically focusing on their skills, projects, education, and work experience, along with their target role and detected skill gaps.
+
+Generate exactly 25 customized interview questions (exactly 5 in each of the 5 categories). 
+
+To ensure deep variance and prevent duplication across multiple requests, you must explore different angles of the core competencies (e.g., swapping specific system design scenarios, varying architectural trade-offs, or rotating problem-solving behavioral prompts).
+
+You must follow these strict rules:
+1. technical: exactly 5 questions focusing on technologies mentioned in the candidate's resume, each containing a verbatim "source_evidence" substring from the resume justifying the skill.
+2. projectBased: exactly 5 questions focusing on projects listed in the candidate's resume, each containing a verbatim "source_evidence" substring.
+3. domainKnowledge: exactly 5 questions targeting missing keywords or core technical competencies expected for this target role, each containing a verbatim "source_evidence" substring showing the missing skill or competency context from the resume.
+4. behavioral: exactly 5 behavioral questions tailored to the candidate's experience. Grounding not required.
+5. hrQuestions: exactly 5 HR/career questions tailored to their path. Grounding not required.
+
+You must also include a grading rubric containing general evaluation benchmarks/rubrics for grading the candidate answers in each category.
+
+You must return ONLY a valid JSON object containing these exact keys:
+- "technical": array of objects { question: string, source_evidence: string }
+- "projectBased": array of objects { question: string, source_evidence: string }
+- "domainKnowledge": array of objects { question: string, source_evidence: string }
+- "behavioral": array of strings (the questions)
+- "hrQuestions": array of strings (the questions)
+- "gradingRubric": array of objects { category: string, criteria: string, excellentScoreGuidelines: string } (generate exactly 5 objects matching the 5 categories of questions above)
 
 Do not include any preamble, introduction, markdown code block backticks (like \`\`\`json), or trailing notes. The response must start with { and end with }`;
 
   const userContent = `Target Role: ${targetRole || 'Software Engineer'}\n` +
+    `Entropy/Seed Token: ${requestId}_${timestamp}\n` +
+    `Directive: You must generate a highly unique and varied set of questions that explore fresh architectural scenarios, specific tool configurations, and varied behavioral situations for this role. Do not repeat common templates.\n` +
     (detectedSkills && detectedSkills.length > 0 ? `Detected technical skills from candidate's resume: ${detectedSkills.join(', ')}\n` : '') +
     (missingSkills && missingSkills.length > 0 ? `Identified missing skills/gaps: ${missingSkills.join(', ')}\n` : '') +
     (candidateProfile ? `Candidate Profile Metrics: Experience=${candidateProfile.experienceLevel}, Depth=${candidateProfile.technicalDepth}, Complexity=${candidateProfile.projectComplexity}, ATS Score=${candidateProfile.atsScore}\n` : '') +
     (difficultyMetadata ? `Adaptive Interview Guidelines: Classification=${difficultyMetadata.difficultyClassification}, Suggested Question Difficulty=${difficultyMetadata.questionDifficulty}, Depth Focus=${difficultyMetadata.focusArea}\n` : '') +
     `\nResume Text:\n\n${resumeText}`;
-
-  const requestId = `iq_${crypto.randomUUID()}`;
 
   const fetchFunc = async (model) => {
     const payload = await fetchJsonWithTimeout(OPENROUTER.URL, {
@@ -1506,7 +1568,12 @@ Do not include any preamble, introduction, markdown code block backticks (like \
     return true;
   };
 
-  return await executeWithRetry(requestId, OPENROUTER.MODEL_ID, fetchFunc, validatorFunc);
+  try {
+    return await executeWithRetry(requestId, OPENROUTER.MODEL_ID, fetchFunc, validatorFunc);
+  } catch (error) {
+    logger.warn('AIAnalyzer', `⚠️ Interview questions API execution failed. Falling back to high-fidelity mock data for role "${targetRole}" to prevent pipeline crash. Error: ${error.message}`);
+    return getMockInterviewQuestions(targetRole, detectedSkills, missingSkills, resumeText);
+  }
 };
 
 /**
