@@ -7,6 +7,8 @@
 
 const constants = require('../config/constants');
 const logger = require('../utils/logger');
+const groundingValidator = require('./groundingValidator');
+const aiResponseValidator = require('./aiResponseValidator');
 
 const { OPENROUTER } = constants;
 
@@ -37,14 +39,16 @@ const cleanJsonString = (rawText) => {
   return cleaned.trim();
 };
 
+const env = require('../config/env');
+
 // Validate API key format on startup/loading
-const apiKey = process.env.OPENROUTER_API_KEY;
+const apiKey = env.OPENROUTER_API_KEY;
 if (apiKey && !apiKey.startsWith('sk-or-')) {
   logger.warn('AIAnalyzer', '⚠️ OPENROUTER_API_KEY does not start with standard "sk-or-" prefix. API calls may fail.');
 }
 
 const OPENROUTER_MODELS = [
-  process.env.OPENROUTER_MODEL_ID || 'nvidia/nemotron-3-ultra-550b-a55b:free',
+  env.AI.MODEL_ID,
   'google/gemini-2.5-flash:free',
   'meta-llama/llama-3.3-70b-instruct:free',
   'qwen/qwen-2.5-coder-32b-instruct:free',
@@ -131,6 +135,12 @@ const isSkillInResume = (skill, resumeText, detectedSkills) => {
  */
 const validateRoleBasedAtsResult = (obj) => {
   if (!obj || typeof obj !== 'object') return false;
+  
+  if (typeof obj.strengths === 'string') obj.strengths = [obj.strengths];
+  if (typeof obj.weaknesses === 'string') obj.weaknesses = [obj.weaknesses];
+  if (typeof obj.missingKeywords === 'string') obj.missingKeywords = [obj.missingKeywords];
+  if (typeof obj.recommendations === 'string') obj.recommendations = [obj.recommendations];
+
   return typeof obj.atsScore === 'number' &&
          Array.isArray(obj.strengths) &&
          Array.isArray(obj.weaknesses) &&
@@ -139,7 +149,7 @@ const validateRoleBasedAtsResult = (obj) => {
          typeof obj.roleFit === 'string';
 };
 
-const getMockRoleBasedAts = (targetRole = 'Software Engineer') => {
+const getMockRoleBasedAtsRaw = (targetRole = 'Software Engineer') => {
   const r = (targetRole || '').toLowerCase();
   
   if (r.includes('front') || r.includes('react') || r.includes('ui/ux') || r.includes('designer') || r.includes('design')) {
@@ -430,6 +440,26 @@ const getMockRoleBasedAts = (targetRole = 'Software Engineer') => {
   }
 };
 
+const addCategoryExplanations = (mockObj) => {
+  mockObj.categoryExplanations = {
+    contact: "The contact section includes standard communication channels.",
+    formatting: "The resume follows standard structural sections.",
+    skills: "The skills section contains common industry keywords.",
+    experience: "The professional experience lists relevant roles and tasks.",
+    projects: "The projects section details technical builds and stacks.",
+    education: "The education section includes academic credentials.",
+    keywords: "The keyword density is average for this role.",
+    achievements: "Quantified business metrics are present or can be improved."
+  };
+  delete mockObj.atsScore;
+  return mockObj;
+};
+
+const getMockRoleBasedAts = (targetRole = 'Software Engineer') => {
+  const raw = getMockRoleBasedAtsRaw(targetRole);
+  return addCategoryExplanations(raw);
+};
+
 const getMockSkillGap = (role, resumeText = '', detectedSkills = []) => {
   const r = (role || '').toLowerCase();
   
@@ -596,7 +626,26 @@ const getMockSkillGap = (role, resumeText = '', detectedSkills = []) => {
     matchedSkills: matchedSkills,
     missingSkills: finalMissingSkills,
     recommendedSkills: recommendedSkills,
-    learningRoadmap: learningRoadmap
+    learningRoadmap: learningRoadmap.map((item, idx) => {
+      const match = item.match(/^(?:Phase\s+\d+:\s*)?([^(]+)(?:\(([^)]+)\))?/i);
+      let title = item;
+      let duration = '2 weeks';
+      if (match) {
+        title = match[1].trim();
+        if (match[2]) {
+          duration = match[2].trim();
+        }
+      }
+      let topics = [];
+      const topicsMatch = title.match(/(?:using|with|in)\s+([^,.]+)/i);
+      if (topicsMatch) {
+        topics = topicsMatch[1].split(/(?:,|\band\b)/).map(t => t.trim()).filter(Boolean);
+      }
+      if (topics.length === 0) {
+        topics = [title];
+      }
+      return { title, duration, topics };
+    })
   };
 };
 
@@ -1008,115 +1057,246 @@ const fetchJsonWithTimeout = async (url, options = {}, timeoutMs = OPENROUTER.RE
   }
 };
 
-const analyzeResumeText = async (text, targetRole, atsAnalysisContext, maxRetries = OPENROUTER_MODELS.length - 1) => {
+const crypto = require('crypto');
+
+const isTransientError = (err) => {
+  const msg = err.message || '';
+  // HTTP status checks: 429, 500, 502, 503, 504
+  if (msg.includes('status 429') || msg.includes('(429)') || msg.includes('429')) return true;
+  if (msg.includes('status 500') || msg.includes('(500)')) return true;
+  if (msg.includes('status 502') || msg.includes('(502)')) return true;
+  if (msg.includes('status 503') || msg.includes('(503)')) return true;
+  if (msg.includes('status 504') || msg.includes('(504)')) return true;
+  
+  // Network timeouts
+  if (err.name === 'AbortError' || msg.includes('aborted') || msg.includes('timeout') || msg.includes('timed out')) {
+    return true;
+  }
+  
+  // Connection resets/network failures
+  if (msg.includes('fetch failed') || msg.includes('connection') || msg.includes('network') || msg.includes('socket')) {
+    return true;
+  }
+  
+  return false;
+};
+
+const extractHttpStatus = (error) => {
+  const match = error.message.match(/status (\d+)/i) || error.message.match(/\((\d+)\)/);
+  return match ? parseInt(match[1], 10) : null;
+};
+
+/**
+ * Unified helper to execute an AI API request with up to 2 automatic retries on transient failures.
+ * Returns parsed JSON object if successful, or throws a user-friendly error on final failure.
+ */
+const executeWithRetry = async (requestId, modelName, fetchFunc, validatorFunc) => {
+  let attempt = 0; // 0 = first attempt, 1 = retry 1, 2 = retry 2
+  
+  while (attempt <= 2) {
+    const runStartTime = Date.now();
+    try {
+      const resultString = await fetchFunc(modelName);
+      
+      if (!resultString || resultString.trim().length === 0) {
+        throw new Error('Received empty response from AI provider.');
+      }
+      
+      const parsed = JSON.parse(cleanJsonString(resultString));
+      
+      if (!validatorFunc(parsed)) {
+        const schemaErr = new Error('AI response failed schema, required fields, or type validation.');
+        schemaErr.isSchemaFailure = true;
+        throw schemaErr;
+      }
+      
+      const duration = Date.now() - runStartTime;
+      logger.info('AIAnalyzer', `[Req ID: ${requestId}] ✅ Success. Model: ${modelName}, Duration: ${duration}ms, Attempt: ${attempt + 1}/3, Final result: Success.`);
+      return parsed;
+      
+    } catch (err) {
+      const duration = Date.now() - runStartTime;
+      const status = extractHttpStatus(err);
+      
+      logger.error('AIAnalyzer', `[Req ID: ${requestId}] ❌ Attempt ${attempt + 1}/3 failed. Model: ${modelName}, Duration: ${duration}ms, HTTP status: ${status || 'N/A'}, Failure reason: ${err.message}`);
+      
+      attempt++;
+      if (attempt <= 2 && !err.isSchemaFailure && !(err instanceof SyntaxError) && isTransientError(err)) {
+        const delay = attempt === 1 ? 1000 : 2000;
+        logger.info('AIAnalyzer', `[Req ID: ${requestId}] 🕒 Retrying automatically (Attempt ${attempt + 1}/3) in ${delay}ms due to transient error...`);
+        await sleep(delay);
+      } else {
+        logger.error('AIAnalyzer', `[Req ID: ${requestId}] 🛑 Request pipeline terminated. Final result: Failure.`);
+        const finalErr = new Error("Analysis could not be generated. Please try again.");
+        finalErr.code = 'AI_ANALYSIS_FAILED';
+        finalErr.originalError = err;
+        throw finalErr;
+      }
+    }
+  }
+};
+
+const analyzeResumeText = async (text, targetRole, atsAnalysisContext) => {
+  const t_prompt_start = Date.now();
   if (!apiKey) {
     logger.warn('AIAnalyzer', '⚠️ OPENROUTER_API_KEY is not configured. Returning mock analysis.');
     return getMockRoleBasedAts(targetRole);
   }
 
-  const systemPrompt = `You are an expert ATS (Applicant Tracking System) recruiter and resume reviewer.
-Your task is to perform a strict, role-specific ATS analysis of the candidate's resume text.
-
-Evaluate the resume ONLY for the targeted job role specified in the input. Do NOT evaluate it as a general resume.
-You must follow these strict guidelines:
-1. STRICT TRUTH: Analyze ONLY the provided resume text. Do NOT assume, invent, or hallucinate any projects, experience, or technologies not explicitly mentioned.
-2. MISSING KEYWORDS: Identify essential industry-standard keywords and technologies for the target role that are missing from the resume.
-3. ROLE FIT: Provide a concise (2-3 sentences) professional assessment of how well the candidate fits the target role based solely on the provided evidence.
-4. ROLE RELEVANCE ATS SCORE: Score the resume's relevance to the target role on a scale of 0 to 100. Be realistic and critical: a frontend resume applying for an AI/ML Engineer role must get a very low score (e.g. 30-50) and show critical skill gaps, whereas a strong frontend resume applying for a Frontend Developer role should score high (e.g. 80-95).
-5. VALID JSON ONLY: You must return ONLY a valid JSON object. Do not include markdown code block formatting (like \`\`\`json), explanations, preambles, or postscripts.
+  const systemPrompt = `You are an expert ATS recruiter. Analyze the candidate's resume ONLY for the targetRole.
+Follow these strict rules:
+1. STRICT TRUTH & GROUNDING: Analyze only the provided resume text. Do not invent experience or skills. Identify at most 3 strengths. For each strength, you MUST provide a "source_evidence" field containing a VERBATIM substring copied exactly from the resume that justifies it.
+2. CONCISE SUMMARY ARRAYS: Identify at most 3 weaknesses, at most 5 missingKeywords, and at most 3 recommendations.
+3. NO OVERLAPS: Do not list any technical skills, keywords, or tools identified as missing in the missingKeywords array inside the strengths, weaknesses, or recommendations arrays. Focus weaknesses and recommendations on qualitative/structural concepts (e.g. lack of quantified achievements, missing portfolio link, summary length).
+4. CONCISE CATEGORY EXPLANATIONS: For each category in the "categoryExplanations" schema below, write a concise explanation (at most 1 sentence, max 15 words) justifying the score passed in the input under "calculatedBreakdownScores".
+5. FORMAT: Return ONLY a valid JSON object. Do not include markdown code block formatting (like \`\`\`json), preambles, or postscripts.
 
 The JSON response must conform exactly to this schema:
 {
-  "atsScore": number,
-  "strengths": string[],
-  "weaknesses": string[],
-  "missingKeywords": string[],
-  "recommendations": string[],
-  "roleFit": string
+  "strengths": [
+    {
+      "text": "string (the description of the strength, max 3 items)",
+      "source_evidence": "string (verbatim substring from the resume)"
+    }
+  ],
+  "weaknesses": string[] (max 3 items),
+  "missingKeywords": string[] (max 5 items),
+  "recommendations": string[] (max 3 items),
+  "roleFit": string,
+  "categoryExplanations": {
+    "contact": "string (explanation for the contact score, max 15 words)",
+    "formatting": "string (explanation for the formatting score, max 15 words)",
+    "skills": "string (explanation for the skills score, max 15 words)",
+    "experience": "string (explanation for the experience score, max 15 words)",
+    "projects": "string (explanation for the projects score, max 15 words)",
+    "education": "string (explanation for the education score, max 15 words)",
+    "keywords": "string (explanation for the keywords score, max 15 words)",
+    "achievements": "string (explanation for the achievements score, max 15 words)"
+  }
 }`;
+  const t_prompt_finish = Date.now();
 
+  const t_serialization_start = Date.now();
   const jsonInput = {
     targetRole: targetRole || 'Software Engineer',
     resumeText: text,
     detectedSkills: (atsAnalysisContext && atsAnalysisContext.detectedSkills) || [],
-    atsAnalysisContext: atsAnalysisContext || {}
+    calculatedBreakdownScores: (atsAnalysisContext && atsAnalysisContext.breakdown) || {}
   };
-
-  let attempt = 0;
   
-  while (attempt <= maxRetries) {
-    const currentModel = OPENROUTER_MODELS[attempt] || 'openrouter/free';
+  const payloadBase = {
+    messages: [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: JSON.stringify(jsonInput) }
+    ],
+    max_tokens: OPENROUTER.MAX_TOKENS,
+    temperature: OPENROUTER.TEMPERATURE,
+    top_p: OPENROUTER.TOP_P,
+    frequency_penalty: OPENROUTER.FREQUENCY_PENALTY,
+    presence_penalty: OPENROUTER.PRESENCE_PENALTY
+  };
+  const bodyBaseStr = JSON.stringify(payloadBase);
+  const t_serialization_finish = Date.now();
+
+  const t_dispatch_start = Date.now();
+  const headers = {
+    'Authorization': `Bearer ${apiKey}`,
+    'Content-Type': 'application/json',
+    'HTTP-Referer': env.CLIENT_URL,
+    'X-Title': 'ATS Pilot'
+  };
+  const t_dispatch_finish = Date.now();
+
+  const requestId = `res_${crypto.randomUUID()}`;
+
+  const fetchFunc = async (model) => {
+    const payloadObject = JSON.parse(bodyBaseStr);
+    payloadObject.model = model;
+    const finalBodyStr = JSON.stringify(payloadObject);
+
+    // Calculate prompt size metrics
+    const charactersCount = systemPrompt.length + JSON.stringify(jsonInput).length;
+    const estimatedTokens = Math.ceil(charactersCount / 4);
+    const payloadKB = Math.ceil(Buffer.byteLength(finalBodyStr, 'utf8') / 1024);
+
+    // Log request size metrics EXACTLY as requested
+    logger.info('AIAnalyzer', `Request Size Metrics for ${model}:\n` +
+      `Characters:\n${charactersCount.toLocaleString()}\n\n` +
+      `Estimated Tokens:\n${estimatedTokens.toLocaleString()}\n\n` +
+      `JSON Payload:\n${payloadKB} KB`
+    );
+
+    const fetch_start_time = Date.now();
+    const controller = new AbortController();
+    const id = setTimeout(() => controller.abort(), OPENROUTER.REQUEST_TIMEOUT_MS);
+
     try {
-      logger.info('AIAnalyzer', `🤖 Requesting ${currentModel} via OpenRouter (Attempt ${attempt + 1}/${maxRetries + 1})...`);
-      console.log("Using OpenRouter model:", currentModel);
-      
-      const payload = await fetchJsonWithTimeout(OPENROUTER.URL, {
+      const response = await fetch(OPENROUTER.URL, {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
-          'HTTP-Referer': process.env.CLIENT_URL || 'http://localhost:5000',
-          'X-Title': 'AI Resume Analyzer'
-        },
-        body: JSON.stringify({
-          model: currentModel,
-          messages: [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: JSON.stringify(jsonInput) }
-          ],
-          max_tokens: OPENROUTER.MAX_TOKENS,
-          temperature: OPENROUTER.TEMPERATURE
-        })
+        headers: headers,
+        body: finalBodyStr,
+        signal: controller.signal
       });
 
-      // Log raw response payload
-      logger.info('AIAnalyzer', 'Raw OpenRouter response payload:', payload);
-      
+      const fetch_headers_time = Date.now();
+
+      if (!response.ok) {
+        const status = response.status;
+        let detailMessage = '';
+        try {
+          const body = await response.text();
+          detailMessage = body ? ` - ${body}` : '';
+        } catch (err) {}
+        throw new Error(`OpenRouter API responded with status ${status}${detailMessage}`);
+      }
+
+      const payload = await response.json();
+      const fetch_body_time = Date.now();
+
       if (!payload.choices || payload.choices.length === 0 || !payload.choices[0].message) {
         throw new Error('Malformed completion response structure received from OpenRouter API.');
       }
 
-      // Log cost and token metrics
+      const t_final = Date.now();
+      const promptBuildDuration = t_prompt_finish - t_prompt_start;
+      const serializationDuration = t_serialization_finish - t_serialization_start;
+      const httpDispatchDuration = t_dispatch_finish - t_dispatch_start;
+      const waitingForAIDuration = fetch_headers_time - fetch_start_time;
+      const responseParsingDuration = (fetch_body_time - fetch_headers_time) + (t_final - fetch_body_time);
+      const totalDuration = t_final - t_prompt_start;
+
+      // Print request lifecycle timings EXACTLY in requested format
+      logger.info('AIAnalyzer', `Request Lifecycle Timings for ${model}:\n` +
+        `Prompt Build:\n${promptBuildDuration} ms\n\n` +
+        `Serialization:\n${serializationDuration} ms\n\n` +
+        `HTTP Dispatch:\n${httpDispatchDuration} ms\n\n` +
+        `Waiting for AI:\n${waitingForAIDuration} ms\n\n` +
+        `Response Parsing:\n${responseParsingDuration} ms\n\n` +
+        `Total:\n${totalDuration} ms`
+      );
+
       if (payload.usage) {
-        logger.info('AIAnalyzer', `${currentModel} completion usage metrics:`, {
+        logger.info('AIAnalyzer', `${model} completion usage metrics:`, {
           promptTokens: payload.usage.prompt_tokens,
           completionTokens: payload.usage.completion_tokens,
           totalTokens: payload.usage.total_tokens
         });
       }
 
-      const content = payload.choices[0].message.content;
-      logger.info('AIAnalyzer', `Raw AI response content string: ${content}`);
-      logger.info('AIAnalyzer', `✅ Received completion from ${currentModel}.`);
-
-      const cleanedContent = cleanJsonString(content);
-      let parsed = JSON.parse(cleanedContent);
-
-      if (!validateRoleBasedAtsResult(parsed)) {
-        throw new Error('Analysis payload is missing required schema keys.');
-      }
-
-      return parsed;
-
-    } catch (error) {
-      logger.error('AIAnalyzer', `❌ Attempt ${attempt + 1} failed: ${error.message}`);
-      
-      if (isTerminalError(error)) {
-        logger.warn('AIAnalyzer', '⚠️ Terminal OpenRouter error detected (such as credit limit or daily free limit reached). Falling back to mock data immediately.');
-        return getMockRoleBasedAts(targetRole);
-      }
-      
-      attempt++;
-      if (attempt <= maxRetries) {
-        const delay = 200; // Small delay when switching models to avoid long timeouts
-        logger.info('AIAnalyzer', `🕒 Trying next model in ${delay}ms...`);
-        await sleep(delay);
-      } else {
-        logger.warn('AIAnalyzer', '⚠️ Maximum retries reached or credit-locked. Falling back to local developer mock analysis.');
-        return getMockRoleBasedAts(targetRole);
-      }
+      return payload.choices[0].message.content;
+    } finally {
+      clearTimeout(id);
     }
-  }
+  };
+
+  const validatorFunc = (parsed) => {
+    if (!aiResponseValidator.validateAtsAnalysis(parsed)) return false;
+    const validation = groundingValidator.validateAtsAnalysis(parsed, text, targetRole);
+    Object.assign(parsed, validation.validated);
+    return true;
+  };
+
+  return await executeWithRetry(requestId, OPENROUTER.MODEL_ID, fetchFunc, validatorFunc);
 };
 
 /**
@@ -1125,6 +1305,11 @@ The JSON response must conform exactly to this schema:
 const validateSkillGapResult = (obj) => {
   if (!obj || typeof obj !== 'object') return false;
   
+  if (typeof obj.matchedSkills === 'string') obj.matchedSkills = [obj.matchedSkills];
+  if (typeof obj.missingSkills === 'string') obj.missingSkills = [obj.missingSkills];
+  if (typeof obj.recommendedSkills === 'string') obj.recommendedSkills = [obj.recommendedSkills];
+  if (typeof obj.learningRoadmap === 'string') obj.learningRoadmap = [obj.learningRoadmap];
+
   const requiredKeys = ['matchedSkills', 'missingSkills', 'recommendedSkills', 'learningRoadmap'];
   return requiredKeys.every(key => Array.isArray(obj[key]));
 };
@@ -1132,7 +1317,7 @@ const validateSkillGapResult = (obj) => {
 /**
  * Performs a skill gap analysis for a candidate's resume text against a target industry role.
  */
-const analyzeSkillGap = async (resumeText, targetRole, detectedSkills = [], maxRetries = OPENROUTER_MODELS.length - 1) => {
+const analyzeSkillGap = async (resumeText, targetRole, detectedSkills = []) => {
   const role = targetRole || 'Software Engineer';
 
   if (!apiKey) {
@@ -1146,96 +1331,80 @@ Compare the candidate's resume skills against standard industry expectations for
 
 You must follow these strict rules:
 1. Analyze ONLY the provided resume text. Do NOT assume, invent, or hallucinate any skills, experience, or projects.
-2. Only list matched skills that are explicitly mentioned in the resume.
-3. Identify missing skills and recommended skills based strictly on standard expectations for "${role}" compared to the candidate's actual content.
+2. EVERY MATCHED SKILL MUST BE GROUNDED: For each matched skill, you must provide a "source_evidence" field containing a VERBATIM substring copied exactly from the resume text that justifies it. If no such substring exists, do not list it as a matched skill.
+3. MISSING & RECOMMENDED SKILLS: Identify missing skills and recommended skills based strictly on standard expectations for "${role}" compared to the candidate's actual content. These are gap-inference fields, so they do not require source evidence.
 
 You must return ONLY a valid JSON object containing these exact keys:
-- "matchedSkills": array of strings
+- "matchedSkills": [
+    {
+      "name": "string (the name of the matched skill)",
+      "source_evidence": "string (verbatim substring from the resume)"
+    }
+  ]
 - "missingSkills": array of strings
 - "recommendedSkills": array of strings
-- "learningRoadmap": array of strings
+- "learningRoadmap": [
+    {
+      "title": "string (the milestone name/focus)",
+      "duration": "string (e.g. 2 weeks)",
+      "topics": ["string (at most 3 key topics/skills to study)"]
+    }
+  ]
 
 Do not include any preamble, introduction, markdown code block backticks (like \`\`\`json), or trailing notes. The response must start with { and end with }`;
 
-  let attempt = 0;
-  
-  while (attempt <= maxRetries) {
-    const currentModel = OPENROUTER_MODELS[attempt] || 'openrouter/free';
-    try {
-      logger.info('AIAnalyzer', `🤖 Requesting ${currentModel} skill gap analysis via OpenRouter (Attempt ${attempt + 1}/${maxRetries + 1})...`);
-      console.log("Using OpenRouter model:", currentModel);
-      
-      const userContent = `Target Role: ${role}\n` +
-        (detectedSkills && detectedSkills.length > 0 ? `Detected technical skills from candidate's resume: ${detectedSkills.join(', ')}\n` : '') +
-        `\nResume Text:\n\n${resumeText}`;
-      
-      const payload = await fetchJsonWithTimeout(OPENROUTER.URL, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
-          'HTTP-Referer': process.env.CLIENT_URL || 'http://localhost:5000',
-          'X-Title': 'AI Resume Analyzer'
-        },
-        body: JSON.stringify({
-          model: currentModel,
-          messages: [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: userContent }
-          ],
-          max_tokens: OPENROUTER.MAX_TOKENS,
-          temperature: OPENROUTER.TEMPERATURE
-        })
-      });
+  const userContent = `Target Role: ${role}\n` +
+    (detectedSkills && detectedSkills.length > 0 ? `Detected technical skills from candidate's resume: ${detectedSkills.join(', ')}\n` : '') +
+    `\nResume Text:\n\n${resumeText}`;
 
-      // Log raw response payload
-      logger.info('AIAnalyzer', 'Raw OpenRouter response payload (Skill Gap):', payload);
-      
-      if (!payload.choices || payload.choices.length === 0 || !payload.choices[0].message) {
-        throw new Error('Malformed completion response structure received from OpenRouter API.');
-      }
+  const requestId = `sg_${crypto.randomUUID()}`;
 
-      // Log cost and token metrics
-      if (payload.usage) {
-        logger.info('AIAnalyzer', `${currentModel} completion usage metrics (Skill Gap):`, {
-          promptTokens: payload.usage.prompt_tokens,
-          completionTokens: payload.usage.completion_tokens,
-          totalTokens: payload.usage.total_tokens
-        });
-      }
-
-      const content = payload.choices[0].message.content;
-      logger.info('AIAnalyzer', `Raw AI response content string (Skill Gap): ${content}`);
-      logger.info('AIAnalyzer', `✅ Received completion from ${currentModel} for skill gap analysis.`);
-
-      const cleanedContent = cleanJsonString(content);
-      let parsed = JSON.parse(cleanedContent);
-
-      if (!validateSkillGapResult(parsed)) {
-        throw new Error('Skill gap analysis payload is missing required schema keys.');
-      }
-
-      return parsed;
-
-    } catch (error) {
-      logger.error('AIAnalyzer', `❌ Attempt ${attempt + 1} failed: ${error.message}`);
-      
-      if (isTerminalError(error)) {
-        logger.warn('AIAnalyzer', `⚠️ Terminal OpenRouter error detected. Falling back to mock skill gap results for "${role}" immediately.`);
-        return getMockSkillGap(role, resumeText, detectedSkills);
-      }
-      
-      attempt++;
-      if (attempt <= maxRetries) {
-        const delay = 200; // Small delay when switching models to avoid long timeouts
-        logger.info('AIAnalyzer', `🕒 Trying next model in ${delay}ms...`);
-        await sleep(delay);
-      } else {
-        logger.warn('AIAnalyzer', `⚠️ Skill gap analysis API failed. Falling back to local developer mock skill gap for "${role}".`);
-        return getMockSkillGap(role, resumeText, detectedSkills);
-      }
+  const fetchFunc = async (model) => {
+    const payload = await fetchJsonWithTimeout(OPENROUTER.URL, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+        'HTTP-Referer': env.CLIENT_URL,
+        'X-Title': 'ATS Pilot'
+      },
+      body: JSON.stringify({
+        model: model,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userContent }
+        ],
+        max_tokens: OPENROUTER.MAX_TOKENS,
+        temperature: OPENROUTER.TEMPERATURE,
+        top_p: OPENROUTER.TOP_P,
+        frequency_penalty: OPENROUTER.FREQUENCY_PENALTY,
+        presence_penalty: OPENROUTER.PRESENCE_PENALTY
+      })
+    });
+    
+    if (!payload.choices || payload.choices.length === 0 || !payload.choices[0].message) {
+      throw new Error('Malformed completion response structure received from OpenRouter API.');
     }
-  }
+    
+    if (payload.usage) {
+      logger.info('AIAnalyzer', `${model} completion usage metrics (Skill Gap):`, {
+        promptTokens: payload.usage.prompt_tokens,
+        completionTokens: payload.usage.completion_tokens,
+        totalTokens: payload.usage.total_tokens
+      });
+    }
+    
+    return payload.choices[0].message.content;
+  };
+
+  const validatorFunc = (parsed) => {
+    if (!aiResponseValidator.validateSkillGap(parsed)) return false;
+    const validation = groundingValidator.validateSkillGap(parsed, resumeText, targetRole);
+    Object.assign(parsed, validation.validated);
+    return true;
+  };
+
+  return await executeWithRetry(requestId, OPENROUTER.MODEL_ID, fetchFunc, validatorFunc);
 };
 
 /**
@@ -1244,6 +1413,12 @@ Do not include any preamble, introduction, markdown code block backticks (like \
 const validateInterviewQuestionsResult = (obj) => {
   if (!obj || typeof obj !== 'object') return false;
   
+  if (typeof obj.technical === 'string') obj.technical = [obj.technical];
+  if (typeof obj.projectBased === 'string') obj.projectBased = [obj.projectBased];
+  if (typeof obj.skillGap === 'string') obj.skillGap = [obj.skillGap];
+  if (typeof obj.behavioral === 'string') obj.behavioral = [obj.behavioral];
+  if (typeof obj.hrQuestions === 'string') obj.hrQuestions = [obj.hrQuestions];
+
   const requiredKeys = ['technical', 'projectBased', 'skillGap', 'behavioral', 'hrQuestions'];
   return requiredKeys.every(key => Array.isArray(obj[key]));
 };
@@ -1251,7 +1426,7 @@ const validateInterviewQuestionsResult = (obj) => {
 /**
  * Generates customized technical, project-specific, behavioral, and HR interview questions based on resume content.
  */
-const generateInterviewQuestions = async (resumeText, atsAnalysis = null, detectedSkills = [], targetRole = 'Software Engineer', missingSkills = [], candidateProfile = null, difficultyMetadata = null, maxRetries = OPENROUTER_MODELS.length - 1) => {
+const generateInterviewQuestions = async (resumeText, atsAnalysis = null, detectedSkills = [], targetRole = 'Software Engineer', missingSkills = [], candidateProfile = null, difficultyMetadata = null) => {
   if (!apiKey) {
     logger.warn('AIAnalyzer', '⚠️ OPENROUTER_API_KEY is not configured. Returning mock interview questions.');
     return getMockInterviewQuestions(targetRole, detectedSkills, missingSkills, resumeText);
@@ -1262,125 +1437,76 @@ const generateInterviewQuestions = async (resumeText, atsAnalysis = null, detect
 Analyze the candidate's resume content, specifically focusing on their skills, projects, education, and work experience, along with their target role and detected skill gaps.
 
 Generate exactly 25 customized interview questions (exactly 5 in each of the 5 categories). You must follow these strict rules:
+1. technical: exactly 5 questions focusing on technologies mentioned in the candidate's resume, each containing a verbatim "source_evidence" substring from the resume justifying the skill.
+2. projectBased: exactly 5 questions focusing on projects listed in the candidate's resume, each containing a verbatim "source_evidence" substring.
+3. skillGap: exactly 5 questions targeting missing keywords or skills identified in the skill gaps, each containing a verbatim "source_evidence" substring showing the missing skill context.
+4. behavioral: exactly 5 behavioral questions tailored to the candidate's experience. Grounding not required.
+5. hrQuestions: exactly 5 HR/career questions tailored to their path. Grounding not required.
 
-1. Category "technical" (exactly 5 questions): Generate role-specific questions customized to the Selected Target Role and the skills present in the resume. Focus on core concepts relevant to that role (e.g., React/JS/State Management for Frontend; Node/DBs/Scaling for Backend; ML/Deep Learning/NLP/MLOps for AI/ML; SQL/Stats/Visualization for Data Analyst).
-2. Category "projectBased" (exactly 5 questions): Target actual projects mentioned in the candidate's resume. Ask about their architecture, database choices, implementation details, authentication, or technical challenges they solved in those specific projects. Do not ask generic questions like "Tell me about a project." Ask about the actual projects found (e.g., "In your BioLynk project..."). If no specific projects are found, generate highly custom hypothetical project questions tailored to the resume's skills and the target role.
-3. Category "skillGap" (exactly 5 questions): Focus directly on the candidate's missing skills/skill gaps. Ask about concepts, architecture, or usage of these missing skills to evaluate if they can bridge the gap (e.g. "Explain Docker containers" if Docker is missing). If there are no missing skills or the list is empty, ask about advanced topics in the target role that are not explicitly detailed in the resume.
-4. Category "behavioral" (exactly 5 questions): Role-independent behavioral questions (e.g., conflict resolution, handling failure, prioritizing learning).
-5. Category "hrQuestions" (exactly 5 questions): Role-independent human resource and conversation questions (e.g., career goals, remote work, salary, fit).
+You must return ONLY a valid JSON object containing these exact keys:
+- "technical": array of objects { question: string, source_evidence: string }
+- "projectBased": array of objects { question: string, source_evidence: string }
+- "skillGap": array of objects { question: string, source_evidence: string }
+- "behavioral": array of strings (the questions)
+- "hrQuestions": array of strings (the questions)
 
-Strict Formatting Rules:
-- Return ONLY a valid JSON object.
-- The JSON object must contain exactly these 5 keys:
-  "technical": array of exactly 5 strings
-  "projectBased": array of exactly 5 strings
-  "skillGap": array of exactly 5 strings
-  "behavioral": array of exactly 5 strings
-  "hrQuestions": array of exactly 5 strings
-- Do not use any hardcoded templates.
-- Do not include preamble, markdown blocks (\`\`\`json), or notes. The output must start with { and end with }.`;
+Do not include any preamble, introduction, markdown code block backticks (like \`\`\`json), or trailing notes. The response must start with { and end with }`;
 
-  const projects = extractProjectsFromText(resumeText);
+  const userContent = `Target Role: ${targetRole || 'Software Engineer'}\n` +
+    (detectedSkills && detectedSkills.length > 0 ? `Detected technical skills from candidate's resume: ${detectedSkills.join(', ')}\n` : '') +
+    (missingSkills && missingSkills.length > 0 ? `Identified missing skills/gaps: ${missingSkills.join(', ')}\n` : '') +
+    (candidateProfile ? `Candidate Profile Metrics: Experience=${candidateProfile.experienceLevel}, Depth=${candidateProfile.technicalDepth}, Complexity=${candidateProfile.projectComplexity}, ATS Score=${candidateProfile.atsScore}\n` : '') +
+    (difficultyMetadata ? `Adaptive Interview Guidelines: Classification=${difficultyMetadata.difficultyClassification}, Suggested Question Difficulty=${difficultyMetadata.questionDifficulty}, Depth Focus=${difficultyMetadata.focusArea}\n` : '') +
+    `\nResume Text:\n\n${resumeText}`;
 
-  // Phase 5: Debugging Logs
-  console.log("--------------------------------------------------");
-  console.log("INTERVIEW PREPARATION DEBUG AUDIT");
-  console.log(`Target Role:\n${targetRole || 'Software Engineer'}\n`);
-  console.log(`Skills:\n${(detectedSkills || []).join(', ')}\n`);
-  console.log(`Projects:\n${(projects || []).join(', ')}\n`);
-  console.log(`Skill Gaps:\n${(missingSkills || []).join(', ')}\n`);
-  if (candidateProfile) {
-    console.log(`Candidate Profile:\n${JSON.stringify(candidateProfile, null, 2)}\n`);
-  }
-  if (difficultyMetadata) {
-    console.log(`Difficulty Metadata:\n${JSON.stringify(difficultyMetadata, null, 2)}\n`);
-  }
-  console.log(`Prompt:\nSystem Prompt:\n${systemPrompt}\nUser Content (Template preview):\nCandidate Data for Customization:\n- Target Job Role: ${targetRole || 'Software Engineer'}\n- Candidate's Detected Skills: ${(detectedSkills || []).join(', ')}\n- Candidate's Missing Skills (Gaps): ${(missingSkills || []).join(', ')}\n- Candidate's Resume Projects: ${(projects || []).join(', ')}\n`);
-  console.log("--------------------------------------------------");
+  const requestId = `iq_${crypto.randomUUID()}`;
 
-  let attempt = 0;
-  
-  while (attempt <= maxRetries) {
-    const currentModel = OPENROUTER_MODELS[attempt] || 'openrouter/free';
-    try {
-      logger.info('AIAnalyzer', `🤖 Requesting ${currentModel} interview questions via OpenRouter (Attempt ${attempt + 1}/${maxRetries + 1})...`);
-      console.log("Using OpenRouter model:", currentModel);
-      
-      const userContent = `Candidate Data for Customization:\n` +
-        `- Target Job Role: ${targetRole || 'Software Engineer'}\n` +
-        (detectedSkills && detectedSkills.length > 0 ? `- Candidate's Detected Skills: ${detectedSkills.join(', ')}\n` : '') +
-        (missingSkills && missingSkills.length > 0 ? `- Candidate's Missing Skills (Gaps): ${missingSkills.join(', ')}\n` : '') +
-        (projects && projects.length > 0 ? `- Candidate's Resume Projects: ${projects.join(', ')}\n` : '') +
-        (atsAnalysis ? `- ATS Analysis Details:\n  * Score: ${atsAnalysis.score || 0}/100\n  * Strengths: ${(atsAnalysis.strengths || []).join('; ')}\n  * Weaknesses: ${(atsAnalysis.weaknesses || []).join('; ')}\n  * Recommendations: ${(atsAnalysis.recommendations || []).join('; ')}\n` : '') +
-        `\nCandidate's Full Resume Text:\n\n${resumeText}`;
-      
-      const payload = await fetchJsonWithTimeout(OPENROUTER.URL, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
-          'HTTP-Referer': process.env.CLIENT_URL || 'http://localhost:5000',
-          'X-Title': 'AI Resume Analyzer'
-        },
-        body: JSON.stringify({
-          model: currentModel,
-          messages: [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: userContent }
-          ],
-          max_tokens: OPENROUTER.MAX_TOKENS,
-          temperature: OPENROUTER.TEMPERATURE
-        })
-      });
-
-      // Log raw response payload
-      logger.info('AIAnalyzer', 'Raw OpenRouter response payload (Interview Questions):', payload);
-      
-      if (!payload.choices || payload.choices.length === 0 || !payload.choices[0].message) {
-        throw new Error('Malformed completion response structure received from OpenRouter API.');
-      }
-
-      // Log cost and token metrics
-      if (payload.usage) {
-        logger.info('AIAnalyzer', `${currentModel} completion usage metrics (Interview Questions):`, {
-          promptTokens: payload.usage.prompt_tokens,
-          completionTokens: payload.usage.completion_tokens,
-          totalTokens: payload.usage.total_tokens
-        });
-      }
-
-      const content = payload.choices[0].message.content;
-      logger.info('AIAnalyzer', `Raw AI response content string (Interview Questions): ${content}`);
-      logger.info('AIAnalyzer', `✅ Received completion from ${currentModel} for interview questions.`);
-
-      const cleanedContent = cleanJsonString(content);
-      let parsed = JSON.parse(cleanedContent);
-
-      if (!validateInterviewQuestionsResult(parsed)) {
-        throw new Error('Interview questions payload is missing required schema keys.');
-      }
-
-      return parsed;
-
-    } catch (error) {
-      logger.error('AIAnalyzer', `❌ Attempt ${attempt + 1} failed: ${error.message}`);
-      
-      if (isTerminalError(error)) {
-        logger.warn('AIAnalyzer', '⚠️ Terminal OpenRouter error detected. Falling back to mock interview questions immediately.');
-        return getMockInterviewQuestions(targetRole, detectedSkills, missingSkills, resumeText);
-      }
-      
-      attempt++;
-      if (attempt <= maxRetries) {
-        const delay = 200; // Small delay when switching models to avoid long timeouts
-        logger.info('AIAnalyzer', `🕒 Trying next model in ${delay}ms...`);
-        await sleep(delay);
-      } else {
-        logger.warn('AIAnalyzer', '⚠️ Interview questions API failed. Falling back to local developer mock questions.');
-        return getMockInterviewQuestions(targetRole, detectedSkills, missingSkills, resumeText);
-      }
+  const fetchFunc = async (model) => {
+    const payload = await fetchJsonWithTimeout(OPENROUTER.URL, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+        'HTTP-Referer': env.CLIENT_URL,
+        'X-Title': 'ATS Pilot'
+      },
+      body: JSON.stringify({
+        model: model,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userContent }
+        ],
+        max_tokens: 1200, // Override global limit to prevent 25 questions truncation
+        temperature: OPENROUTER.TEMPERATURE,
+        top_p: OPENROUTER.TOP_P,
+        frequency_penalty: OPENROUTER.FREQUENCY_PENALTY,
+        presence_penalty: OPENROUTER.PRESENCE_PENALTY
+      })
+    });
+    
+    if (!payload.choices || payload.choices.length === 0 || !payload.choices[0].message) {
+      throw new Error('Malformed completion response structure received from OpenRouter API.');
     }
-  }
+    
+    if (payload.usage) {
+      logger.info('AIAnalyzer', `${model} completion usage metrics (Interview Questions):`, {
+        promptTokens: payload.usage.prompt_tokens,
+        completionTokens: payload.usage.completion_tokens,
+        totalTokens: payload.usage.total_tokens
+      });
+    }
+    
+    return payload.choices[0].message.content;
+  };
+
+  const validatorFunc = (parsed) => {
+    if (!aiResponseValidator.validateInterviewQuestions(parsed)) return false;
+    const validation = groundingValidator.validateInterviewQuestions(parsed, resumeText, targetRole);
+    Object.assign(parsed, validation.validated);
+    return true;
+  };
+
+  return await executeWithRetry(requestId, OPENROUTER.MODEL_ID, fetchFunc, validatorFunc);
 };
 
 /**
@@ -1468,8 +1594,8 @@ Your response must contain ONLY the category name. Do not include explanation, m
         headers: {
           'Authorization': `Bearer ${apiKey}`,
           'Content-Type': 'application/json',
-          'HTTP-Referer': process.env.CLIENT_URL || 'http://localhost:5000',
-          'X-Title': 'AI Resume Analyzer'
+          'HTTP-Referer': env.CLIENT_URL,
+          'X-Title': 'ATS Pilot'
         },
         body: JSON.stringify({
           model: currentModel,

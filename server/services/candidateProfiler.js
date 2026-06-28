@@ -521,7 +521,11 @@ const buildCandidateProfile = (resumeText, targetRole, detectedSkills = [], miss
     careerDirection: inferCareerDirection(normalizedRole, detectedSkills, normalizedText)
   };
 
-  logger.info('CandidateProfiler', 'Profiling complete:', JSON.stringify(profile));
+  if (logger.SENSITIVE_LOGS_ENABLED) {
+    logger.info('CandidateProfiler', 'Profiling complete:', JSON.stringify(profile));
+  } else {
+    logger.info('CandidateProfiler', `Profiling complete. Experience: ${profile.experienceLevel.value}, Depth: ${profile.technicalDepth.value}`);
+  }
   return profile;
 };
 

@@ -44,7 +44,7 @@ const fileFilter = (req, file, cb) => {
   if (isAllowedExt && isAllowedMime) {
     cb(null, true);
   } else {
-    logger.warn('Upload', `Blocked upload of file with disallowed type: ${originalname} (ext: ${ext}, mime: ${mimeType})`);
+    logger.warn('Upload', `Blocked upload of file with disallowed type: ${file.originalname} (ext: ${ext}, mime: ${mimeType})`);
     const error = new Error('Unsupported file type. Only PDF files (.pdf) are allowed.');
     error.statusCode = 400;
     error.code = 'UNSUPPORTED_FILE_TYPE';

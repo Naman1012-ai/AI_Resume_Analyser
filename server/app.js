@@ -14,6 +14,8 @@ const errorHandler = require('./middleware/errorHandler');
 const constants = require('./config/constants');
 const logger = require('./utils/logger');
 
+const env = require('./config/env');
+
 const app = express();
 
 // Secure application by setting various HTTP headers via Helmet
@@ -42,7 +44,7 @@ app.use(helmet({
 app.set('trust proxy', 1);
 
 // Enable Cross-Origin Resource Sharing (CORS) with configuration from environment
-const clientUrl = process.env.CLIENT_URL || 'http://localhost:5000';
+const clientUrl = env.CLIENT_URL;
 
 // Security validation: Prevent wildcard '*' CORS configuration when credentials are enabled
 if (clientUrl === '*' || clientUrl.includes('*')) {

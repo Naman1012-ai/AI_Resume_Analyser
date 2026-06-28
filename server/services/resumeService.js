@@ -1,0 +1,457 @@
+/**
+ * @file resumeService.js
+ * @description Service layer orchestrating resume analysis pipeline, skill gap comparison, and interview preparation.
+ */
+
+const fs = require('fs');
+const crypto = require('crypto');
+const pdfParser = require('./pdfParser');
+const firebaseService = require('./firebaseService');
+const atsScorer = require('./atsScorer');
+const aiAnalyzer = require('./aiAnalyzer');
+const candidateProfiler = require('./candidateProfiler');
+const difficultyEngine = require('./difficultyEngine');
+const aiResponseValidator = require('./aiResponseValidator');
+const constants = require('../config/constants');
+const env = require('../config/env');
+const logger = require('../utils/logger');
+
+/**
+ * Stage 1-7: Complete resume analysis pipeline.
+ */
+async function processResumeAnalysis(userId, file, targetRole) {
+  const { path: filePath, originalname } = file;
+
+  // 1. Validate targetRole
+  if (!targetRole || typeof targetRole !== 'string' || targetRole.trim() === '') {
+    const error = new Error('Please upload a resume and select a target job role before starting the analysis.');
+    error.statusCode = 400;
+    error.code = 'MISSING_TARGET_ROLE';
+    throw error;
+  }
+
+  // 2. Text Extraction
+  let extractedText;
+  try {
+    extractedText = await pdfParser.extractText(filePath);
+  } catch (parseError) {
+    logger.error('Pipeline', `Parsing Error: ${parseError.message}`);
+    const error = new Error('Failed to parse PDF content. Ensure the file is not corrupted.');
+    error.statusCode = 422;
+    error.code = 'PARSING_ERROR';
+    throw error;
+  }
+
+  // Validate text length
+  if (!extractedText || extractedText.trim().length < 100) {
+    const error = new Error('Resume content could not be extracted.');
+    error.statusCode = 400;
+    error.code = 'EXTRACTION_FAILED';
+    throw error;
+  }
+
+  if (extractedText.length > constants.BODY_LIMITS.RESUME_TEXT_MAX_LENGTH) {
+    const error = new Error(`Resume text length exceeds maximum limit of ${constants.BODY_LIMITS.RESUME_TEXT_MAX_LENGTH} characters.`);
+    error.statusCode = 400;
+    error.code = 'TEXT_TOO_LONG';
+    throw error;
+  }
+
+  // 3. Document Type Classification
+  let docType;
+  try {
+    docType = await aiAnalyzer.classifyDocument(extractedText);
+  } catch (classError) {
+    logger.error('Pipeline', `Document classification failed: ${classError.message}`);
+    docType = 'Unknown';
+  }
+
+  if (docType !== 'Resume' && docType !== 'CV') {
+    const message = docType === 'Unknown'
+      ? 'Unable to determine document type. Please upload a valid resume.'
+      : 'Uploaded document is not a resume. ATS analysis unavailable.';
+    const error = new Error(message);
+    error.statusCode = 400;
+    error.code = 'INVALID_DOCUMENT_TYPE';
+    error.documentType = docType;
+    throw error;
+  }
+
+  // 4. Realistic Rule-Based ATS Scoring
+  let scoreAnalysis;
+  try {
+    scoreAnalysis = atsScorer.scoreResume(extractedText, targetRole);
+  } catch (scoreError) {
+    logger.error('Pipeline', `Scoring Error: ${scoreError.message}`);
+    const error = new Error('Failed to calculate ATS score.');
+    error.statusCode = 500;
+    error.code = 'SCORING_ERROR';
+    throw error;
+  }
+
+  // 5. Claude AI Analysis via OpenRouter
+  let aiAnalysis;
+  try {
+    aiAnalysis = await aiAnalyzer.analyzeResumeText(extractedText, targetRole, scoreAnalysis);
+  } catch (aiError) {
+    logger.error('Pipeline', `AI Analysis failed: ${aiError.message}`);
+    const userErr = new Error('Analysis could not be generated. Please try again.');
+    userErr.statusCode = 500;
+    userErr.code = 'AI_ANALYSIS_FAILED';
+    throw userErr;
+  }
+
+  // 6. Generate Skill Gap and Interview Prep for the record
+  let skillGap = null;
+  let interviewPrep = null;
+  try {
+    skillGap = await aiAnalyzer.analyzeSkillGap(extractedText, targetRole, scoreAnalysis.detectedSkills || []);
+    if (skillGap) {
+      skillGap.targetRole = targetRole;
+    }
+  } catch (sgErr) {
+    logger.error('Pipeline', `Skill Gap failed: ${sgErr.message}`);
+    const userErr = new Error('Analysis could not be generated. Please try again.');
+    userErr.statusCode = 500;
+    userErr.code = 'AI_ANALYSIS_FAILED';
+    throw userErr;
+  }
+
+  try {
+    const projects = aiAnalyzer.extractProjectsFromText(extractedText);
+    const candidateProfile = candidateProfiler.buildCandidateProfile(
+      extractedText,
+      targetRole || 'Software Engineer',
+      scoreAnalysis.detectedSkills || [],
+      skillGap.missingSkills || [],
+      scoreAnalysis.overallScore,
+      projects || []
+    );
+    const difficultyMetadata = difficultyEngine.generateDifficultyMetadata(
+      candidateProfile,
+      scoreAnalysis.overallScore
+    );
+    interviewPrep = await aiAnalyzer.generateInterviewQuestions(
+      extractedText,
+      {
+        score: scoreAnalysis.overallScore,
+        strengths: aiAnalysis.strengths,
+        weaknesses: aiAnalysis.weaknesses,
+        recommendations: aiAnalysis.recommendations
+      },
+      scoreAnalysis.detectedSkills || [],
+      targetRole || 'Software Engineer',
+      skillGap.missingSkills || [],
+      candidateProfile,
+      difficultyMetadata
+    );
+  } catch (ipErr) {
+    logger.error('Pipeline', `Interview Prep failed: ${ipErr.message}`);
+    const userErr = new Error('Analysis could not be generated. Please try again.');
+    userErr.statusCode = 500;
+    userErr.code = 'AI_ANALYSIS_FAILED';
+    throw userErr;
+  }
+
+  // 7. Save Analysis record
+  const analysisId = `analysis_${crypto.randomUUID()}`;
+  const createdAt = new Date().toISOString();
+
+  const record = {
+    userId: userId,
+    resumeName: originalname,
+    resumeFileName: originalname,
+    targetRole: targetRole,
+    score: scoreAnalysis.overallScore,
+    atsScore: scoreAnalysis.overallScore,
+    breakdown: scoreAnalysis.breakdown,
+    explanations: aiAnalysis.categoryExplanations || {},
+    strengths: aiAnalysis.strengths,
+    weaknesses: aiAnalysis.weaknesses,
+    recommendations: aiAnalysis.recommendations,
+    atsTips: [
+      'Use standard section headings like "Work Experience", "Education", and "Skills".',
+      'Avoid using graphics, text boxes, charts, or images which cannot be read by ATS scanners.',
+      'Describe your achievements using the Action Verb + Task + Result formula.'
+    ],
+    rewriteSuggestions: aiAnalysis.recommendations,
+    missingKeywords: aiAnalysis.missingKeywords,
+    missingSections: scoreAnalysis.missingSections || [],
+    recruiterFeedback: aiAnalysis.roleFit,
+    skillGap: skillGap,
+    interviewPrep: interviewPrep,
+    resumeText: extractedText,
+    detectedSkills: scoreAnalysis.detectedSkills || [],
+    createdAt: createdAt
+  };
+
+  // Perform Consolidated Record Business Integrity Check
+  if (!aiResponseValidator.validateConsolidatedRecord(record)) {
+    logger.error('Pipeline', '❌ Consolidated record failed validation integrity check.');
+    const error = new Error('Analysis could not be generated due to system integrity check failure.');
+    error.statusCode = 500;
+    error.code = 'INTEGRITY_CHECK_FAILED';
+    throw error;
+  }
+
+  logger.info('Pipeline', `💾 Saving results to Firebase under ID: ${analysisId}...`);
+  try {
+    await firebaseService.saveAnalysis(analysisId, record);
+    logger.info('Pipeline', '✅ Saved to Firebase successfully.');
+  } catch (dbError) {
+    logger.error('Pipeline', `Database Write Error: ${dbError.message}`);
+    const error = new Error('Failed to save analysis record to database.');
+    error.statusCode = 500;
+    error.code = 'DATABASE_WRITE_ERROR';
+    throw error;
+  }
+
+  return {
+    analysisId,
+    record
+  };
+}
+
+/**
+ * Handle skill gap analysis logic (both standalone and persistent context).
+ */
+async function processSkillGapAnalysis(userId, body) {
+  let { resumeText, targetRole, analysisId, detectedSkills } = body;
+  
+  let dbRecord = null;
+  if (analysisId) {
+    dbRecord = await firebaseService.getAnalysisById(analysisId);
+    if (!dbRecord) {
+      const error = new Error('Analysis record not found.');
+      error.statusCode = 404;
+      error.code = 'NOT_FOUND';
+      throw error;
+    }
+    
+    // Ownership check
+    const isDev = env.IS_DEV;
+    if (dbRecord.userId !== userId && !(isDev && userId === 'anonymous')) {
+      logger.warn('SkillGap', `Access denied: User ${userId} requested record owned by ${dbRecord.userId}`);
+      const error = new Error('Access denied. You are not authorized to view this analysis.');
+      error.statusCode = 403;
+      error.code = 'FORBIDDEN';
+      throw error;
+    }
+
+    if (!targetRole) {
+      targetRole = dbRecord.targetRole || (dbRecord.skillGap && dbRecord.skillGap.targetRole);
+    }
+    if ((!detectedSkills || detectedSkills.length === 0) && dbRecord.detectedSkills) {
+      detectedSkills = dbRecord.detectedSkills;
+    }
+    if (!resumeText && (dbRecord.resumeText || dbRecord.extractedResumeText || dbRecord.extractedText)) {
+      resumeText = dbRecord.resumeText || dbRecord.extractedResumeText || dbRecord.extractedText;
+    }
+  }
+
+  // Request Validation
+  if (!targetRole || typeof targetRole !== 'string' || targetRole.trim() === '') {
+    const error = new Error('Target role is required and must be a non-empty string.');
+    error.statusCode = 400;
+    error.code = 'INVALID_INPUT';
+    throw error;
+  }
+  
+  if (!resumeText || typeof resumeText !== 'string' || resumeText.trim().length === 0) {
+    const error = new Error('Resume text content is required.');
+    error.statusCode = 400;
+    error.code = 'INVALID_INPUT';
+    throw error;
+  }
+
+  if (resumeText.length > constants.BODY_LIMITS.RESUME_TEXT_MAX_LENGTH) {
+    const error = new Error(`Resume text content exceeds maximum limit of ${constants.BODY_LIMITS.RESUME_TEXT_MAX_LENGTH} characters.`);
+    error.statusCode = 400;
+    error.code = 'TEXT_TOO_LONG';
+    throw error;
+  }
+
+  // Perform AI Skill Gap Analysis
+  let result;
+  try {
+    result = await aiAnalyzer.analyzeSkillGap(resumeText, targetRole, detectedSkills || []);
+  } catch (aiError) {
+    logger.error('SkillGap', `Skill Gap Analysis Error: ${aiError.message}`);
+    const error = new Error('Analysis could not be generated. Please try again.');
+    error.statusCode = 500;
+    error.code = 'AI_ANALYSIS_ERROR';
+    throw error;
+  }
+
+  // Save if analysisId is active
+  if (analysisId && dbRecord) {
+    try {
+      const isDev = env.IS_DEV;
+      if (dbRecord.userId === userId || (isDev && userId === 'anonymous')) {
+        dbRecord.targetRole = targetRole;
+        dbRecord.skillGap = {
+          targetRole,
+          matchedSkills: result.matchedSkills,
+          missingSkills: result.missingSkills,
+          recommendedSkills: result.recommendedSkills,
+          learningRoadmap: result.learningRoadmap
+        };
+        await firebaseService.saveAnalysis(analysisId, dbRecord);
+      }
+    } catch (dbErr) {
+      logger.error('SkillGap', `Failed to save skill gap results to DB: ${dbErr.message}`);
+    }
+  }
+
+  return {
+    matchedSkills: result.matchedSkills,
+    missingSkills: result.missingSkills,
+    recommendedSkills: result.recommendedSkills,
+    learningRoadmap: result.learningRoadmap
+  };
+}
+
+/**
+ * Handle interview preparation questions logic.
+ */
+async function processInterviewQuestions(userId, body) {
+  let { resumeText, analysisId, atsAnalysis, detectedSkills, targetRole, missingSkills } = body;
+  
+  let dbRecord = null;
+  if (analysisId) {
+    dbRecord = await firebaseService.getAnalysisById(analysisId);
+    if (!dbRecord) {
+      const error = new Error('Analysis record not found.');
+      error.statusCode = 404;
+      error.code = 'NOT_FOUND';
+      throw error;
+    }
+    
+    // Ownership check
+    const isDev = env.IS_DEV;
+    if (dbRecord.userId !== userId && !(isDev && userId === 'anonymous')) {
+      logger.warn('InterviewPrep', `Access denied: User ${userId} requested record owned by ${dbRecord.userId}`);
+      const error = new Error('Access denied. You are not authorized to view this analysis.');
+      error.statusCode = 403;
+      error.code = 'FORBIDDEN';
+      throw error;
+    }
+
+    if (!targetRole) {
+      targetRole = dbRecord.targetRole || (dbRecord.skillGap && dbRecord.skillGap.targetRole);
+    }
+    if ((!missingSkills || missingSkills.length === 0) && dbRecord.skillGap && dbRecord.skillGap.missingSkills) {
+      missingSkills = dbRecord.skillGap.missingSkills;
+    }
+    if ((!detectedSkills || detectedSkills.length === 0) && dbRecord.detectedSkills) {
+      detectedSkills = dbRecord.detectedSkills;
+    }
+    if (!resumeText && (dbRecord.resumeText || dbRecord.extractedResumeText || dbRecord.extractedText)) {
+      resumeText = dbRecord.resumeText || dbRecord.extractedResumeText || dbRecord.extractedText;
+    }
+    if (!atsAnalysis) {
+      atsAnalysis = {
+        score: dbRecord.atsScore || dbRecord.score || 0,
+        strengths: dbRecord.strengths || [],
+        weaknesses: dbRecord.weaknesses || [],
+        recommendations: dbRecord.recommendations || []
+      };
+    }
+  }
+
+  // Request Validation
+  if (!resumeText || typeof resumeText !== 'string' || resumeText.trim().length === 0) {
+    const error = new Error('Resume text content is required.');
+    error.statusCode = 400;
+    error.code = 'INVALID_INPUT';
+    throw error;
+  }
+
+  if (resumeText.length > constants.BODY_LIMITS.RESUME_TEXT_MAX_LENGTH) {
+    const error = new Error(`Resume text content exceeds maximum limit of ${constants.BODY_LIMITS.RESUME_TEXT_MAX_LENGTH} characters.`);
+    error.statusCode = 400;
+    error.code = 'TEXT_TOO_LONG';
+    throw error;
+  }
+
+  const projects = aiAnalyzer.extractProjectsFromText(resumeText);
+  
+  if (
+    !targetRole || typeof targetRole !== 'string' || targetRole.trim() === '' ||
+    !detectedSkills || !Array.isArray(detectedSkills) || detectedSkills.length === 0 ||
+    !projects || projects.length === 0
+  ) {
+    const error = new Error('Interview preparation data unavailable.');
+    error.statusCode = 400;
+    error.code = 'PREPARATION_DATA_UNAVAILABLE';
+    throw error;
+  }
+
+  const candidateProfile = candidateProfiler.buildCandidateProfile(
+    resumeText,
+    targetRole || 'Software Engineer',
+    detectedSkills || [],
+    missingSkills || [],
+    atsAnalysis?.score || atsAnalysis?.atsScore || 0,
+    projects || []
+  );
+
+  const difficultyMetadata = difficultyEngine.generateDifficultyMetadata(
+    candidateProfile,
+    atsAnalysis?.score || atsAnalysis?.atsScore || 0
+  );
+
+  // Generate Interview Questions
+  let result;
+  try {
+    result = await aiAnalyzer.generateInterviewQuestions(
+      resumeText, 
+      atsAnalysis || null, 
+      detectedSkills || [], 
+      targetRole || 'Software Engineer', 
+      missingSkills || [],
+      candidateProfile,
+      difficultyMetadata
+    );
+  } catch (aiError) {
+    logger.error('InterviewPrep', `Interview Questions Error: ${aiError.message}`);
+    const error = new Error('Analysis could not be generated. Please try again.');
+    error.statusCode = 500;
+    error.code = 'AI_ANALYSIS_ERROR';
+    throw error;
+  }
+
+  // Persist if analysisId is active
+  if (analysisId && dbRecord) {
+    try {
+      const isDev = env.IS_DEV;
+      if (dbRecord.userId === userId || (isDev && userId === 'anonymous')) {
+        dbRecord.targetRole = targetRole;
+        dbRecord.interviewPrep = {
+          technical: result.technical,
+          projectBased: result.projectBased,
+          skillGap: result.skillGap,
+          behavioral: result.behavioral,
+          hrQuestions: result.hrQuestions
+        };
+        await firebaseService.saveAnalysis(analysisId, dbRecord);
+      }
+    } catch (dbErr) {
+      logger.error('InterviewPrep', `Failed to save interview questions to DB: ${dbErr.message}`);
+    }
+  }
+
+  return {
+    technical: result.technical,
+    projectBased: result.projectBased,
+    skillGap: result.skillGap,
+    behavioral: result.behavioral,
+    hrQuestions: result.hrQuestions
+  };
+}
+
+module.exports = {
+  processResumeAnalysis,
+  processSkillGapAnalysis,
+  processInterviewQuestions
+};

@@ -8,17 +8,18 @@
 // Load environment variables from .env file
 require('dotenv').config();
 
+const env = require('./config/env');
 const app = require('./app');
 const logger = require('./utils/logger');
 const constants = require('./config/constants');
 
 // Retrieve configurations
-const PORT = process.env.PORT || 5000;
-const NODE_ENV = process.env.NODE_ENV || 'production'; // default to production for safety
+const PORT = env.PORT;
+const NODE_ENV = env.NODE_ENV;
 
 // Start HTTP server
 const server = app.listen(PORT, () => {
-  logger.info('Server', `🚀 AI Resume Analyzer Server Started!`);
+  logger.info('Server', `🚀 ATS Pilot Server Started!`);
   logger.info('Server', `📢 Mode: ${NODE_ENV}`);
   logger.info('Server', `🌐 Server running on: http://localhost:${PORT}`);
 });

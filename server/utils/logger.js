@@ -5,11 +5,13 @@
  * Replaces all console.log/warn/error calls across the server.
  */
 
-const NODE_ENV = process.env.NODE_ENV || 'production';
-const IS_DEV = NODE_ENV === 'development';
+const env = require('../config/env');
+
+const NODE_ENV = env.NODE_ENV;
+const IS_DEV = env.IS_DEV;
 
 const LEVELS = { debug: 0, info: 1, warn: 2, error: 3 };
-const LOG_LEVEL = LEVELS[process.env.LOG_LEVEL || (IS_DEV ? 'debug' : 'info')];
+const LOG_LEVEL = LEVELS[env.LOG_LEVEL];
 
 const COLORS = {
   debug: '\x1b[36m', // cyan
@@ -51,9 +53,12 @@ function log(level, module, message, meta = null) {
   }
 }
 
+const SENSITIVE_LOGS_ENABLED = env.IS_DEV && env.DEBUG_MODE;
+
 module.exports = {
   debug: (module, message, meta) => log('debug', module, message, meta),
   info: (module, message, meta) => log('info', module, message, meta),
   warn: (module, message, meta) => log('warn', module, message, meta),
-  error: (module, message, meta) => log('error', module, message, meta)
+  error: (module, message, meta) => log('error', module, message, meta),
+  SENSITIVE_LOGS_ENABLED
 };

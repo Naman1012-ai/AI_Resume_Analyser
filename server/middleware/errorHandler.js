@@ -7,10 +7,12 @@
 
 const logger = require('../utils/logger');
 
+const env = require('../config/env');
+
 const errorHandler = (err, req, res, next) => {
   const statusCode = err.statusCode || 500;
   const errorCode = err.code || 'INTERNAL_SERVER_ERROR';
-  const nodeEnv = process.env.NODE_ENV || 'production';
+  const nodeEnv = env.NODE_ENV;
 
   // Log error using our structured logger
   logger.error('API', `Error occurred: ${err.message}`, {

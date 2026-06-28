@@ -8,8 +8,10 @@ const admin = require('firebase-admin');
 const { getDatabase } = require('firebase-admin/database');
 const logger = require('../utils/logger');
 
-const projectId = process.env.FIREBASE_PROJECT_ID;
-const databaseURL = process.env.FIREBASE_DATABASE_URL;
+const env = require('../config/env');
+
+const projectId = env.FIREBASE.PROJECT_ID;
+const databaseURL = env.FIREBASE.DATABASE_URL;
 
 let isFirebaseInitialized = false;
 let hasCredentials = false;
@@ -23,7 +25,7 @@ if (!projectId || !databaseURL) {
 
 try {
   if (!admin.getApps().length) {
-    if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+    if (env.FIREBASE.GOOGLE_APPLICATION_CREDENTIALS) {
       admin.initializeApp({
         credential: admin.applicationDefault(),
         databaseURL: databaseURL
@@ -31,13 +33,12 @@ try {
       logger.info('Firebase', '🛡️ Firebase Admin SDK initialized using Application Default Credentials (ADC)');
       isFirebaseInitialized = true;
       hasCredentials = true;
-    } else if (process.env.FIREBASE_CLIENT_EMAIL && process.env.FIREBASE_PRIVATE_KEY) {
-      const privateKey = process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n');
+    } else if (env.FIREBASE.CLIENT_EMAIL && env.FIREBASE.PRIVATE_KEY) {
       admin.initializeApp({
         credential: admin.cert({
           projectId: projectId,
-          clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-          privateKey: privateKey
+          clientEmail: env.FIREBASE.CLIENT_EMAIL,
+          privateKey: env.FIREBASE.PRIVATE_KEY
         }),
         databaseURL: databaseURL
       });
@@ -127,8 +128,6 @@ const saveAnalysis = async (analysisId, record) => {
     recruiterFeedback: record.recruiterFeedback || '',
     skillGap: record.skillGap || null,
     interviewPrep: record.interviewPrep || null,
-    extractedText: record.extractedText || '',
-    extractedResumeText: record.extractedResumeText || record.extractedText || '',
     detectedSkills: record.detectedSkills || [],
     createdAt: record.createdAt || new Date().toISOString()
   };
@@ -146,11 +145,23 @@ const saveAnalysis = async (analysisId, record) => {
 
   try {
     const db = getDatabase();
-    // Save to global analyses repository
+    // Save to global analyses repository (full details)
     await db.ref(`analyses/${analysisId}`).set(dbPayload);
-    // Save to user history repository (with summary fields + details for instant loading)
-    await db.ref(`users/${userId}/analyses/${analysisId}`).set(dbPayload);
-    logger.info('Firebase', `💾 Analysis ${analysisId} successfully saved to Firebase RTDB for user ${userId}.`);
+    
+    // Save to user history repository (summary only, keeping size minimal for faster history query)
+    const summaryPayload = {
+      analysisId: dbPayload.analysisId,
+      userId: dbPayload.userId,
+      resumeName: dbPayload.resumeName,
+      resumeFileName: dbPayload.resumeFileName,
+      targetRole: dbPayload.targetRole,
+      score: dbPayload.score,
+      createdAt: dbPayload.createdAt,
+      breakdown: dbPayload.breakdown || {},
+      missingSkills: dbPayload.skillGap ? (dbPayload.skillGap.missingSkills || []) : []
+    };
+    await db.ref(`users/${userId}/analyses/${analysisId}`).set(summaryPayload);
+    logger.info('Firebase', `💾 Analysis ${analysisId} successfully saved (details + summary) to Firebase RTDB for user ${userId}.`);
     return true;
   } catch (error) {
     logger.error('Firebase', `Firebase Database Write Failed: ${error.message}`, { analysisId, userId });
@@ -213,17 +224,152 @@ const getAnalysisById = async (analysisId) => {
   // If in fallback mode without real credentials, return from local in-memory store
   if (!hasCredentials) {
     logger.warn('Firebase', `⚠️ Running in fallback mode. Reading analysis ${analysisId} from local in-memory store.`);
-    return mockDatabaseStore.get(analysisId) || null;
+    const record = mockDatabaseStore.get(analysisId) || null;
+    if (record && !record.resumeText) {
+      record.resumeText = record.extractedResumeText || record.extractedText || '';
+    }
+    return record;
   }
 
   try {
     const db = getDatabase();
     const snapshot = await db.ref(`analyses/${analysisId}`).once('value');
-    return snapshot.val();
+    const record = snapshot.val();
+    if (record && !record.resumeText) {
+      record.resumeText = record.extractedResumeText || record.extractedText || '';
+    }
+    return record;
   } catch (error) {
     logger.error('Firebase', `Firebase Database Read Failed: ${error.message}`, { analysisId });
     throw new Error(`Firebase Database Read Failed: ${error.message}`);
   }
+};
+
+/**
+ * Unified helper to compute dashboard analytics from sorted user analyses list.
+ */
+const computeExtendedStats = (sortedList) => {
+  const totalAnalyses = sortedList.length;
+  const highestScore = totalAnalyses > 0 ? Math.max(...sortedList.map(item => item.score)) : 0;
+  const sumScore = sortedList.reduce((sum, item) => sum + item.score, 0);
+  const averageScore = totalAnalyses > 0 ? Math.round(sumScore / totalAnalyses) : 0;
+  
+  const now = new Date();
+  const currentMonth = now.getMonth();
+  const currentYear = now.getFullYear();
+  const analysesThisMonth = sortedList.filter(item => {
+    const d = new Date(item.createdAt);
+    return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+  }).length;
+  
+  const recentAnalysis = sortedList[0] || null;
+  
+  // Last 6 iterations in chronological order for the trend chart
+  const trends = sortedList.slice(0, 6).reverse().map(item => ({
+    name: item.resumeName,
+    score: item.score,
+    date: new Date(item.createdAt).toLocaleDateString(undefined, { month: 'short', day: '2-digit' })
+  }));
+
+  // 1. Recent Improvement (delta between latest score and previous score)
+  let recentImprovement = 0;
+  if (sortedList.length >= 2) {
+    recentImprovement = sortedList[0].score - sortedList[1].score;
+  }
+
+  // 2. Most Targeted Role & Role Distribution
+  const roleCounts = {};
+  sortedList.forEach(item => {
+    const role = item.targetRole || 'Unknown';
+    roleCounts[role] = (roleCounts[role] || 0) + 1;
+  });
+  const roleDistribution = Object.keys(roleCounts).map(role => ({
+    role,
+    count: roleCounts[role]
+  })).sort((a, b) => b.count - a.count);
+
+  const mostTargetedRole = roleDistribution[0] ? roleDistribution[0].role : 'None';
+
+  // 3. Most Common Missing Skills (aggregate and count top 5)
+  const skillCounts = {};
+  sortedList.forEach(item => {
+    const skills = item.missingSkills || [];
+    skills.forEach(skill => {
+      skillCounts[skill] = (skillCounts[skill] || 0) + 1;
+    });
+  });
+  const mostCommonMissingSkills = Object.keys(skillCounts)
+    .map(skill => ({ skill, count: skillCounts[skill] }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 5);
+
+  // 4. Monthly Analyses Timeline
+  const monthlyCounts = {};
+  const chronoList = [...sortedList].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+  chronoList.forEach(item => {
+    if (!item.createdAt) return;
+    const date = new Date(item.createdAt);
+    const monthYear = date.toLocaleDateString(undefined, { month: 'short', year: 'numeric' });
+    monthlyCounts[monthYear] = (monthlyCounts[monthYear] || 0) + 1;
+  });
+  const monthlyAnalyses = Object.keys(monthlyCounts).map(month => ({
+    month,
+    count: monthlyCounts[month]
+  }));
+
+  // 5. Category Score Averages (Skill Improvement metric)
+  const categoryTotals = {};
+  const categoryMaxes = {
+    contact: 10,
+    structure: 10,
+    skills: 20,
+    experience: 20,
+    projects: 15,
+    education: 10,
+    keywords: 10,
+    achievements: 5
+  };
+  sortedList.forEach(item => {
+    const bd = item.breakdown || {};
+    Object.keys(categoryMaxes).forEach(cat => {
+      categoryTotals[cat] = (categoryTotals[cat] || 0) + (bd[cat] || 0);
+    });
+  });
+  const categoryAverages = {};
+  Object.keys(categoryMaxes).forEach(cat => {
+    const total = categoryTotals[cat] || 0;
+    const avg = totalAnalyses > 0 ? Number((total / totalAnalyses).toFixed(1)) : 0;
+    categoryAverages[cat] = {
+      score: avg,
+      max: categoryMaxes[cat],
+      percentage: categoryMaxes[cat] > 0 ? Math.round((avg / categoryMaxes[cat]) * 100) : 0
+    };
+  });
+
+  // 6. Recent History Summary List (last 5 records)
+  const historySummary = sortedList.slice(0, 5).map(item => ({
+    analysisId: item.analysisId,
+    resumeName: item.resumeName,
+    targetRole: item.targetRole,
+    score: item.score,
+    createdAt: item.createdAt
+  }));
+
+  return {
+    totalAnalyses,
+    highestScore,
+    averageScore,
+    analysesThisMonth,
+    recentAnalysis,
+    trends,
+    recentImprovement,
+    mostTargetedRole,
+    roleDistribution,
+    mostCommonMissingSkills,
+    monthlyAnalyses,
+    categoryAverages,
+    historySummary
+  };
 };
 
 /**
@@ -250,41 +396,19 @@ const getDashboardStats = async (userId) => {
         averageScore: 0,
         analysesThisMonth: 0,
         recentAnalysis: null,
-        trends: []
+        trends: [],
+        recentImprovement: 0,
+        mostTargetedRole: 'None',
+        roleDistribution: [],
+        mostCommonMissingSkills: [],
+        monthlyAnalyses: [],
+        categoryAverages: {},
+        historySummary: []
       };
     }
     const list = Array.from(userMap.values());
     const sortedList = list.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-    
-    const totalAnalyses = sortedList.length;
-    const highestScore = totalAnalyses > 0 ? Math.max(...sortedList.map(item => item.score)) : 0;
-    const sumScore = sortedList.reduce((sum, item) => sum + item.score, 0);
-    const averageScore = totalAnalyses > 0 ? Math.round(sumScore / totalAnalyses) : 0;
-    
-    const now = new Date();
-    const currentMonth = now.getMonth();
-    const currentYear = now.getFullYear();
-    const analysesThisMonth = sortedList.filter(item => {
-      const d = new Date(item.createdAt);
-      return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
-    }).length;
-    
-    const recentAnalysis = sortedList[0] || null;
-    
-    const trends = sortedList.slice(0, 6).reverse().map(item => ({
-      name: item.resumeName,
-      score: item.score,
-      date: new Date(item.createdAt).toLocaleDateString(undefined, { month: 'short', day: '2-digit' })
-    }));
-
-    return {
-      totalAnalyses,
-      highestScore,
-      averageScore,
-      analysesThisMonth,
-      recentAnalysis,
-      trends
-    };
+    return computeExtendedStats(sortedList);
   }
 
   try {
@@ -299,46 +423,20 @@ const getDashboardStats = async (userId) => {
         averageScore: 0,
         analysesThisMonth: 0,
         recentAnalysis: null,
-        trends: []
+        trends: [],
+        recentImprovement: 0,
+        mostTargetedRole: 'None',
+        roleDistribution: [],
+        mostCommonMissingSkills: [],
+        monthlyAnalyses: [],
+        categoryAverages: {},
+        historySummary: []
       };
     }
 
     const list = Object.keys(data).map(key => data[key]);
-    
-    // Sort by createdAt descending
     const sortedList = list.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-    
-    const totalAnalyses = sortedList.length;
-    const highestScore = totalAnalyses > 0 ? Math.max(...sortedList.map(item => item.score)) : 0;
-    const sumScore = sortedList.reduce((sum, item) => sum + item.score, 0);
-    const averageScore = totalAnalyses > 0 ? Math.round(sumScore / totalAnalyses) : 0;
-    
-    // Analyses this month (current calendar month & year)
-    const now = new Date();
-    const currentMonth = now.getMonth();
-    const currentYear = now.getFullYear();
-    const analysesThisMonth = sortedList.filter(item => {
-      const d = new Date(item.createdAt);
-      return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
-    }).length;
-    
-    const recentAnalysis = sortedList[0] || null;
-    
-    // Last 6 iterations in chronological order for the trend chart
-    const trends = sortedList.slice(0, 6).reverse().map(item => ({
-      name: item.resumeName,
-      score: item.score,
-      date: new Date(item.createdAt).toLocaleDateString(undefined, { month: 'short', day: '2-digit' })
-    }));
-
-    return {
-      totalAnalyses,
-      highestScore,
-      averageScore,
-      analysesThisMonth,
-      recentAnalysis,
-      trends
-    };
+    return computeExtendedStats(sortedList);
   } catch (error) {
     logger.error('Firebase', `Firebase Database Stats Retrieval Failed: ${error.message}`, { userId });
     throw new Error(`Firebase Database Stats Retrieval Failed: ${error.message}`);

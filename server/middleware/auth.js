@@ -8,13 +8,15 @@ const { getAuth } = require('firebase-admin/auth');
 const { isInitialized, hasCredentials } = require('../services/firebaseService');
 const logger = require('../utils/logger');
 
+const env = require('../config/env');
+
 /**
  * Express middleware to verify Firebase ID tokens passed in the Authorization header.
  */
 const requireAuth = async (req, res, next) => {
   const authHeader = req.headers.authorization;
-  const isDevMode = process.env.NODE_ENV === 'development';
-  const allowMockAuth = process.env.ALLOW_MOCK_AUTH === 'true';
+  const isDevMode = env.IS_DEV;
+  const allowMockAuth = env.ALLOW_MOCK_AUTH;
 
   // 1. Mock token authentication bypass (only allowed in explicit development environments)
   if (authHeader && authHeader.startsWith('Bearer mock-token') && isDevMode && allowMockAuth) {

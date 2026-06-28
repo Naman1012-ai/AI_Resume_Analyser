@@ -4,6 +4,8 @@
  * All magic numbers, score weights, API URLs, and limits are defined here.
  */
 
+const env = require('./env');
+
 module.exports = {
   // ATS Score category weights (must sum to 100)
   SCORE_WEIGHTS: {
@@ -21,7 +23,7 @@ module.exports = {
 
   // File upload limits
   UPLOAD: {
-    MAX_FILE_SIZE: 5 * 1024 * 1024, // 5MB
+    MAX_FILE_SIZE: env.UPLOAD.MAX_FILE_SIZE,
     ALLOWED_EXTENSIONS: ['.pdf'],
     ALLOWED_MIME_TYPES: ['application/pdf']
   },
@@ -42,12 +44,15 @@ module.exports = {
   // OpenRouter API configuration
   OPENROUTER: {
     URL: 'https://openrouter.ai/api/v1/chat/completions',
-    MODEL_ID: process.env.OPENROUTER_MODEL_ID || 'nvidia/nemotron-3-ultra-550b-a55b:free',
-    FALLBACK_MODEL_ID: process.env.OPENROUTER_FALLBACK_MODEL_ID || 'openrouter/free',
-    MAX_RETRIES: 2,
-    MAX_TOKENS: 2500,
-    TEMPERATURE: 0.3,
-    REQUEST_TIMEOUT_MS: 15000,  // 15 second timeout per request
+    MODEL_ID: env.AI.MODEL_ID,
+    FALLBACK_MODEL_ID: env.AI.FALLBACK_MODEL_ID,
+    MAX_RETRIES: env.AI.MAX_AI_RETRIES,
+    MAX_TOKENS: 600,
+    TEMPERATURE: 0.1,
+    TOP_P: 0.8,
+    FREQUENCY_PENALTY: 0,
+    PRESENCE_PENALTY: 0,
+    REQUEST_TIMEOUT_MS: env.AI.REQUEST_TIMEOUT_MS,  // timeout per request from environment
     BACKOFF_BASE_MS: 1500
   },
 
