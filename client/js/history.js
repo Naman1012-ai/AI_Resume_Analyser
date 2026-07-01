@@ -1,6 +1,6 @@
 import { auth, isMockMode } from './firebase-config.js';
 import { FirebaseService } from './api.js';
-import { escapeHTML, showToast } from './utils.js';
+import { escapeHTML, showToast, getCompatibilityDetails } from './utils.js';
 
 document.addEventListener('DOMContentLoaded', () => {
   const historySearchInput = document.getElementById('history-search-input');
@@ -87,21 +87,9 @@ document.addEventListener('DOMContentLoaded', () => {
           minute: '2-digit'
         });
 
-        let ratingClass = 'moderate';
-        let levelLabel = 'Compatibility: Moderate';
-        if (item.score < 40) {
-          ratingClass = 'critical';
-          levelLabel = 'Compatibility: Critical';
-        } else if (item.score >= 40 && item.score <= 59) {
-          ratingClass = 'moderate';
-          levelLabel = 'Compatibility: Moderate';
-        } else if (item.score >= 60 && item.score <= 79) {
-          ratingClass = 'strong';
-          levelLabel = 'Compatibility: Strong';
-        } else {
-          ratingClass = 'extreme';
-          levelLabel = 'Compatibility: Extreme';
-        }
+        const details = getCompatibilityDetails(item.score);
+        const ratingClass = details.ratingClass;
+        const levelLabel = `Compatibility: ${details.label}`;
 
         const escapedName = escapeHTML(item.resumeName);
         card.innerHTML = `

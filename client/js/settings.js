@@ -9,7 +9,8 @@ import {
   deleteUser,
   verifyBeforeUpdateEmail,
   sendEmailVerification,
-  sendPasswordResetEmail
+  sendPasswordResetEmail,
+  updateProfile
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 import { ref, get, set, update } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 import { FirebaseService } from './api.js';
@@ -69,7 +70,7 @@ document.addEventListener('DOMContentLoaded', () => {
   let authenticatedEmail = '';
 
   // Load Settings Information
-  function loadSettings() {
+  async function loadSettings() {
     const user = auth.currentUser;
     if (!user && !isMockMode) return;
 
@@ -90,6 +91,66 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Store email for exact comparison
     authenticatedEmail = userEmail;
+
+    // Load Profile fields
+    const profileNameInput = document.getElementById('profile-name');
+    const profileRoleInput = document.getElementById('profile-role');
+    const profilePhotoUrlInput = document.getElementById('profile-photo-url');
+    const profilePhotoPreview = document.getElementById('profile-photo-preview');
+    const profilePhotoFallback = document.getElementById('profile-photo-fallback');
+
+    let displayName = isMockMode ? 'John Doe' : (user ? (user.displayName || '') : '');
+    let roleTitle = 'Software Engineer';
+    let avatarUrl = isMockMode ? '' : (user ? (user.photoURL || '') : '');
+
+    // Attempt to load from cache first
+    try {
+      const cached = sessionStorage.getItem('profile_cache');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (parsed.displayName) displayName = parsed.displayName;
+        if (parsed.roleTitle) roleTitle = parsed.roleTitle;
+        if (parsed.avatarUrl) avatarUrl = parsed.avatarUrl;
+      }
+    } catch (e) {
+      console.warn('Failed to parse cache in settings:', e);
+    }
+
+    // Fetch fresh details from RTDB
+    if (user && !isMockMode) {
+      try {
+        const profileSnap = await get(ref(db, `users/${user.uid}/profile`));
+        if (profileSnap.exists()) {
+          const val = profileSnap.val();
+          if (val.displayName !== undefined) displayName = val.displayName;
+          if (val.roleTitle !== undefined) roleTitle = val.roleTitle;
+          if (val.avatarUrl !== undefined) avatarUrl = val.avatarUrl;
+        }
+      } catch (err) {
+        console.warn('Failed to load profile details from RTDB:', err);
+      }
+    }
+
+    if (profileNameInput) profileNameInput.value = displayName;
+    if (profileRoleInput) profileRoleInput.value = roleTitle;
+    if (profilePhotoUrlInput) profilePhotoUrlInput.value = avatarUrl;
+
+    if (avatarUrl) {
+      if (profilePhotoPreview) {
+        profilePhotoPreview.src = avatarUrl;
+        profilePhotoPreview.style.display = 'block';
+      }
+      if (profilePhotoFallback) profilePhotoFallback.style.display = 'none';
+    } else {
+      if (profilePhotoPreview) profilePhotoPreview.style.display = 'none';
+      if (profilePhotoFallback) profilePhotoFallback.style.display = 'flex';
+    }
+
+    // Populate email display under Identity
+    const settingsEmailDisplay = document.getElementById('settings-email-display');
+    if (settingsEmailDisplay) {
+      settingsEmailDisplay.textContent = userEmail;
+    }
 
     // Verification Status Badge display
     const vBadge = document.getElementById('verification-badge');
@@ -149,58 +210,126 @@ document.addEventListener('DOMContentLoaded', () => {
       themeToggle.checked = savedTheme === 'light';
     }
 
+    // Load language preference
+    const prefLanguageSelect = document.getElementById('pref-language');
+    if (prefLanguageSelect) {
+      prefLanguageSelect.value = localStorage.getItem('pref-language') || 'en';
+    }
+
     // Load notification preferences
     if (prefWeeklyStats) {
       prefWeeklyStats.checked = localStorage.getItem('pref-weekly-stats') === 'true';
     }
   }
 
-  // Password Update Form Submission
-  if (securityForm) {
-    securityForm.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      
-      const currentPassword = currentPasswordInput.value;
-      const newPassword = newPasswordInput.value;
-      const confirmPassword = confirmPasswordInput.value;
+  // Profile Save Event Handlers
+  const btnSaveProfile = document.getElementById('btn-save-profile');
+  const profileNameInput = document.getElementById('profile-name');
+  const profileRoleInput = document.getElementById('profile-role');
+  const profilePhotoUrlInput = document.getElementById('profile-photo-url');
+  const profilePhotoPreview = document.getElementById('profile-photo-preview');
+  const profilePhotoFallback = document.getElementById('profile-photo-fallback');
 
-      if (newPassword !== confirmPassword) {
-        showToast('New passwords do not match.', 'error');
+  if (btnSaveProfile) {
+    btnSaveProfile.addEventListener('click', async () => {
+      const displayName = profileNameInput ? profileNameInput.value.trim() : '';
+      const roleTitle = profileRoleInput ? profileRoleInput.value.trim() : '';
+      const photoURL = profilePhotoUrlInput ? profilePhotoUrlInput.value.trim() : '';
+
+      if (!displayName) {
+        showToast('Display Name cannot be empty.', 'error');
         return;
       }
 
-      if (newPassword.length < 6) {
-        showToast('Password must be at least 6 characters.', 'error');
-        return;
-      }
-
-      btnUpdatePassword.setAttribute('disabled', 'true');
-      btnUpdatePassword.textContent = 'Updating...';
+      btnSaveProfile.disabled = true;
+      btnSaveProfile.textContent = 'Saving...';
 
       try {
         if (isMockMode) {
-          showToast('Password updated (Mock Mode)!');
-          securityForm.reset();
+          showToast('Profile updated successfully (Mock Mode)!', 'success');
+          // Update live preview
+          if (photoURL) {
+            if (profilePhotoPreview) {
+              profilePhotoPreview.src = photoURL;
+              profilePhotoPreview.style.display = 'block';
+            }
+            if (profilePhotoFallback) profilePhotoFallback.style.display = 'none';
+          } else {
+            if (profilePhotoPreview) profilePhotoPreview.style.display = 'none';
+            if (profilePhotoFallback) profilePhotoFallback.style.display = 'flex';
+          }
+
+          // Trigger state sync reactively
+          const cacheObj = { displayName, roleTitle, avatarUrl: photoURL };
+          sessionStorage.setItem('profile_cache', JSON.stringify(cacheObj));
+          localStorage.setItem('profile_cache', JSON.stringify(cacheObj));
+          window.dispatchEvent(new CustomEvent('profile-updated', { detail: cacheObj }));
           return;
         }
 
         const user = auth.currentUser;
         if (!user) throw new Error('Authorization required.');
 
-        // Reauthenticate
-        const credential = EmailAuthProvider.credential(user.email, currentPassword);
-        await reauthenticateWithCredential(user, credential);
+        // Call updateProfile
+        await updateProfile(user, { displayName, photoURL });
+        
+        // Also update Realtime Database profile details
+        const profileRef = ref(db, `users/${user.uid}/profile`);
+        await update(profileRef, { displayName, roleTitle, avatarUrl: photoURL });
 
-        // Update password
-        await updatePassword(user, newPassword);
-        showToast('Password updated successfully!', 'success');
-        securityForm.reset();
+        // Update other denormalized fields
+        await Promise.all([
+          set(ref(db, `users/${user.uid}/displayName`), displayName),
+          set(ref(db, `users/${user.uid}/roleTitle`), roleTitle),
+          set(ref(db, `users/${user.uid}/domain`), roleTitle),
+          set(ref(db, `users/${user.uid}/domainName`), roleTitle),
+          set(ref(db, `users/${user.uid}/photoURL`), photoURL),
+          set(ref(db, `users/${user.uid}/avatarUrl`), photoURL)
+        ]);
+
+        showToast('Profile updated successfully!', 'success');
+
+        // Update live preview
+        if (photoURL) {
+          if (profilePhotoPreview) {
+            profilePhotoPreview.src = photoURL;
+            profilePhotoPreview.style.display = 'block';
+          }
+          if (profilePhotoFallback) profilePhotoFallback.style.display = 'none';
+        } else {
+          if (profilePhotoPreview) profilePhotoPreview.style.display = 'none';
+          if (profilePhotoFallback) profilePhotoFallback.style.display = 'flex';
+        }
+
+        // Trigger state sync reactively across sessions/tabs/pages
+        const cacheObj = { displayName, roleTitle, avatarUrl: photoURL };
+        sessionStorage.setItem('profile_cache', JSON.stringify(cacheObj));
+        localStorage.setItem('profile_cache', JSON.stringify(cacheObj)); // Triggers 'storage' event
+        window.dispatchEvent(new CustomEvent('profile-updated', { detail: cacheObj }));
+
       } catch (err) {
-        console.error('Password update failure:', err);
-        showToast(err.message || 'Failed to update password. Verify current password.', 'error');
+        console.error('Profile update failure:', err);
+        showToast(err.message || 'Failed to update profile.', 'error');
       } finally {
-        btnUpdatePassword.removeAttribute('disabled');
-        btnUpdatePassword.textContent = 'Update Password';
+        btnSaveProfile.disabled = false;
+        btnSaveProfile.textContent = 'Save Profile';
+      }
+    });
+  }
+
+  // Dynamic preview update as URL is typed
+  if (profilePhotoUrlInput) {
+    profilePhotoUrlInput.addEventListener('input', () => {
+      const url = profilePhotoUrlInput.value.trim();
+      if (url) {
+        if (profilePhotoPreview) {
+          profilePhotoPreview.src = url;
+          profilePhotoPreview.style.display = 'block';
+        }
+        if (profilePhotoFallback) profilePhotoFallback.style.display = 'none';
+      } else {
+        if (profilePhotoPreview) profilePhotoPreview.style.display = 'none';
+        if (profilePhotoFallback) profilePhotoFallback.style.display = 'flex';
       }
     });
   }
@@ -442,6 +571,89 @@ document.addEventListener('DOMContentLoaded', () => {
       } finally {
         btnChangeEmail.disabled = false;
         btnChangeEmail.textContent = 'Initiate Change';
+      }
+    });
+  }
+
+  // Resume Language preference switcher
+  const prefLanguageSelect = document.getElementById('pref-language');
+  if (prefLanguageSelect) {
+    prefLanguageSelect.addEventListener('change', (e) => {
+      const lang = e.target.value;
+      localStorage.setItem('pref-language', lang);
+      
+      // Save to Firebase database too
+      const user = auth.currentUser;
+      if (user && !isMockMode) {
+        const prefRef = ref(db, `users/${user.uid}/preferences`);
+        update(prefRef, { language: lang }).catch(err => console.error('Failed to sync language preference:', err));
+      }
+      showToast(`Default resume language set to: ${prefLanguageSelect.options[prefLanguageSelect.selectedIndex].text}`);
+    });
+  }
+
+  // Export Profile Data
+  const btnExportData = document.getElementById('btn-export-data');
+  if (btnExportData) {
+    btnExportData.addEventListener('click', async () => {
+      btnExportData.disabled = true;
+      const originalText = btnExportData.innerHTML;
+      btnExportData.textContent = 'Exporting...';
+
+      try {
+        let exportData = {};
+
+        if (isMockMode) {
+          exportData = {
+            userId: 'anonymous_mock_user',
+            profile: {
+              displayName: 'John Doe',
+              email: 'demo@atspilot.co'
+            },
+            analyses: {
+              'mock_analysis_1': {
+                score: 72,
+                targetRole: 'Backend Developer',
+                createdAt: new Date().toISOString()
+              }
+            }
+          };
+        } else {
+          const user = auth.currentUser;
+          if (!user) throw new Error('Authorization required.');
+
+          const userRef = ref(db, `users/${user.uid}`);
+          const snap = await get(userRef);
+          if (snap.exists()) {
+            exportData = snap.val();
+          } else {
+            exportData = {
+              userId: user.uid,
+              profile: {
+                displayName: user.displayName || '',
+                email: user.email || ''
+              },
+              info: 'No analysis history found.'
+            };
+          }
+        }
+
+        // Trigger JSON file download
+        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(exportData, null, 2));
+        const downloadAnchor = document.createElement('a');
+        downloadAnchor.setAttribute("href", dataStr);
+        downloadAnchor.setAttribute("download", `resumetrices_data_export_${Date.now()}.json`);
+        document.body.appendChild(downloadAnchor);
+        downloadAnchor.click();
+        downloadAnchor.remove();
+
+        showToast('Profile data exported successfully!', 'success');
+      } catch (err) {
+        console.error('Data export failure:', err);
+        showToast(err.message || 'Failed to export profile data.', 'error');
+      } finally {
+        btnExportData.disabled = false;
+        btnExportData.innerHTML = originalText;
       }
     });
   }

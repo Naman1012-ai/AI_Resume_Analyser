@@ -1,6 +1,6 @@
 import { auth, isMockMode } from './firebase-config.js';
 import { FirebaseService } from './api.js';
-import { escapeHTML, showToast } from './utils.js';
+import { escapeHTML, showToast, getCompatibilityDetails } from './utils.js';
 
 const categoryMetadata = {
   contact: { name: 'Contact Info & Profile Details', max: 10, color: 'blue' },
@@ -50,49 +50,20 @@ async function renderAnalysisReport(analysis) {
   const score = analysis.score || 0;
 
   if (rhName) rhName.textContent = analysis.resumeName || 'Resume';
-  if (rhRole) rhRole.textContent = `Target Role: ${analysis.targetRole || 'Not Specified'}`;
+  if (rhRole) rhRole.textContent = `Target Role: ${analysis.targetRole || 'Software Engineer'}`;
   if (rhDate) {
-    const dateVal = analysis.createdAt ? new Date(analysis.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : 'Unknown Date';
-    rhDate.textContent = `Parsed ${dateVal}`;
+    const d = new Date(analysis.createdAt);
+    rhDate.textContent = `Scanned: ${d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}`;
   }
   if (rhScore) rhScore.textContent = `${score}/100`;
 
-  let state = '';
-  let statusText = '';
-  let bannerText = '';
-  let color = '';
-  let borderColor = '';
-  let bg = '';
-
-  if (score < 40) {
-    state = 'CRITICAL_GAP';
-    statusText = 'Compatibility: Critical';
-    bannerText = 'COMPATIBILITY: CRITICAL';
-    color = '#f43f5e';
-    borderColor = 'rgba(244, 63, 94, 0.3)';
-    bg = 'rgba(244, 63, 94, 0.04)';
-  } else if (score >= 40 && score <= 59) {
-    state = 'MODERATE_MATCH';
-    statusText = 'Compatibility: Moderate';
-    bannerText = 'COMPATIBILITY: MODERATE';
-    color = '#f59e0b';
-    borderColor = 'rgba(245, 158, 11, 0.3)';
-    bg = 'rgba(245, 158, 11, 0.04)';
-  } else if (score >= 60 && score <= 79) {
-    state = 'STRONG_ALIGNMENT';
-    statusText = 'Compatibility: Strong';
-    bannerText = 'COMPATIBILITY: STRONG';
-    color = '#06b6d4';
-    borderColor = 'rgba(6, 182, 212, 0.3)';
-    bg = 'rgba(6, 182, 212, 0.04)';
-  } else {
-    state = 'EXCEPTIONAL_MATCH';
-    statusText = 'Compatibility: Extreme';
-    bannerText = 'COMPATIBILITY: EXTREME';
-    color = '#10b981';
-    borderColor = 'rgba(16, 185, 129, 0.3)';
-    bg = 'rgba(16, 185, 129, 0.04)';
-  }
+  // Get compatibility visual details from central helper
+  const details = getCompatibilityDetails(score);
+  const statusText = `Compatibility: ${details.label}`;
+  const bannerText = `COMPATIBILITY: ${details.label.toUpperCase()}`;
+  const color = details.color;
+  const borderColor = details.borderColor;
+  const bg = details.bg;
 
   if (rhBadge) {
     rhBadge.textContent = bannerText;
@@ -141,15 +112,16 @@ async function renderAnalysisReport(analysis) {
       const meta = categoryMetadata[key] || { name: key, max: 10, color: 'blue' };
       const exp = explanations[key] || 'Detailed score explanation.';
       
+      const maxVal = (analysis.weights && typeof analysis.weights[key] === 'number') ? analysis.weights[key] : meta.max;
+      const percentage = (value / maxVal) * 100;
+      
       const card = document.createElement('div');
       card.className = 'breakdown-card';
-      
-      const percentage = (value / meta.max) * 100;
       
       card.innerHTML = `
         <div class="breakdown-card-header">
           <span class="breakdown-card-title">${escapeHTML(meta.name)}</span>
-          <span class="breakdown-card-score">${value}/${meta.max}</span>
+          <span class="breakdown-card-score">${value}/${maxVal}</span>
         </div>
         <div class="progress-bar-bg">
           <div class="progress-bar-fill ${meta.color}" style="width: ${percentage}%"></div>

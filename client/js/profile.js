@@ -13,23 +13,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const profileProvider = document.getElementById('profile-provider');
   const profileAvatarPlaceholder = document.getElementById('profile-avatar-placeholder');
   const profileAvatarImage = document.getElementById('profile-avatar-image');
-  const avatarFileInput = document.getElementById('avatar-file-input');
-
-  const btnProfileEdit = document.getElementById('btn-profile-edit');
-  const btnProfileSave = document.getElementById('btn-profile-save');
-  const btnProfileCancel = document.getElementById('btn-profile-cancel');
-  
-  const btnRoleEdit = document.getElementById('btn-role-edit');
-  const btnRoleSave = document.getElementById('btn-role-save');
-  const btnRoleCancel = document.getElementById('btn-role-cancel');
-
-  const profileNameDisplayContainer = document.getElementById('profile-name-display-container');
-  const profileNameEditContainer = document.getElementById('profile-name-edit-container');
-  const inputProfileName = document.getElementById('input-profile-name');
-
-  const profileRoleDisplayContainer = document.getElementById('profile-role-display-container');
-  const profileRoleEditContainer = document.getElementById('profile-role-edit-container');
-  const inputProfileRole = document.getElementById('input-profile-role');
 
   const historyTableBody = document.getElementById('history-table-body');
   const competencyTabContent = document.getElementById('competency-tab-content');
@@ -45,11 +28,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const deleteConfirmModal = document.getElementById('delete-confirm-modal');
   const btnDeleteCancel = document.getElementById('btn-delete-cancel');
   const btnDeleteConfirmSubmit = document.getElementById('btn-delete-confirm-submit');
-
-  // Inline Save Status Indicators
-  const nameSaveStatus = document.getElementById('name-save-status');
-  const roleSaveStatus = document.getElementById('role-save-status');
-
   // State
   let activeRenameId = null;
   let activeRenameRow = null; // Reference to the <tr> element being renamed
@@ -58,27 +36,6 @@ document.addEventListener('DOMContentLoaded', () => {
   let currentInterviewPrep = null;
   let activeTab = 'technical';
   let isProfileLoaded = false;
-
-  /**
-   * Flash an inline save status indicator next to an edit field.
-   * Clears itself after a delay.
-   */
-  function flashStatus(element, status) {
-    if (!element) return;
-    element.style.opacity = '1';
-    if (status === 'saving') {
-      element.textContent = 'Saving...';
-      element.style.color = 'var(--text-muted)';
-    } else if (status === 'saved') {
-      element.textContent = '✓ Saved';
-      element.style.color = 'var(--emerald)';
-      setTimeout(() => { element.style.opacity = '0'; }, 2000);
-    } else if (status === 'error') {
-      element.textContent = '⚠ Error';
-      element.style.color = 'var(--danger)';
-      setTimeout(() => { element.style.opacity = '0'; }, 3000);
-    }
-  }
 
   // Load User Identity Data
   async function loadProfileData() {
@@ -192,221 +149,19 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  // Avatar Upload Handler
-  if (avatarFileInput) {
-    avatarFileInput.addEventListener('change', async (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
+  // Reactive state synchronization and re-rendering
+  window.addEventListener('profile-updated', (e) => {
+    const { displayName, roleTitle, avatarUrl } = e.detail;
+    if (profileDisplayName) profileDisplayName.textContent = displayName;
+    if (profileRoleTitle) profileRoleTitle.textContent = roleTitle;
+    updateAvatarUI(displayName, avatarUrl);
+  });
 
-      if (!file.type.startsWith('image/')) {
-        showToast('Please upload a valid image file.', 'error');
-        return;
-      }
-
-      if (file.size > 2 * 1024 * 1024) { // 2MB Limit
-        showToast('Image size must be less than 2MB.', 'error');
-        return;
-      }
-
-      const reader = new FileReader();
-      reader.onload = async (event) => {
-        const dataUrl = event.target.result;
-
-        // Immediately swap the DOM — don't wait for the write to resolve
-        const currentName = profileDisplayName ? profileDisplayName.textContent : 'User';
-        updateAvatarUI(currentName, dataUrl);
-
-        try {
-          if (isMockMode) {
-            showToast('Avatar updated (Mock Mode)!');
-            return;
-          }
-
-          const user = auth.currentUser;
-          if (!user) throw new Error('Authorization required.');
-
-          // Save Base64 to RTDB profile node and root central user document
-          await Promise.all([
-            set(ref(db, `users/${user.uid}/profile/avatarUrl`), dataUrl),
-            set(ref(db, `users/${user.uid}/avatarUrl`), dataUrl),
-            set(ref(db, `users/${user.uid}/photoURL`), dataUrl)
-          ]);
-
-          // Also update Auth user's photoURL for cross-session persistence
-          await updateProfile(user, { photoURL: dataUrl });
-
-          // Update local session storage cache
-          try {
-            const cached = JSON.parse(sessionStorage.getItem('profile_cache') || '{}');
-            cached.avatarUrl = dataUrl;
-            sessionStorage.setItem('profile_cache', JSON.stringify(cached));
-          } catch (e) {
-            console.warn('Failed to update avatar cache:', e);
-          }
-
-          showToast('Avatar photo updated successfully!', 'success');
-        } catch (err) {
-          console.error('Avatar save failure:', err);
-          showToast('Failed to save avatar image.', 'error');
-          // Revert to placeholder on failure
-          updateAvatarUI(profileDisplayName ? profileDisplayName.textContent : 'User', '');
-        }
-      };
-      reader.readAsDataURL(file);
-    });
-  }
-
-  // Edit Name Actions
-  if (btnProfileEdit) {
-    btnProfileEdit.addEventListener('click', () => {
-      if (inputProfileName) {
-        inputProfileName.value = profileDisplayName.textContent;
-      }
-      if (profileNameDisplayContainer) profileNameDisplayContainer.style.display = 'none';
-      if (profileNameEditContainer) profileNameEditContainer.style.display = 'flex';
-      if (inputProfileName) inputProfileName.focus();
-    });
-  }
-
-  if (btnProfileCancel) {
-    btnProfileCancel.addEventListener('click', () => {
-      if (profileNameDisplayContainer) profileNameDisplayContainer.style.display = 'flex';
-      if (profileNameEditContainer) profileNameEditContainer.style.display = 'none';
-    });
-  }
-
-  if (btnProfileSave) {
-    btnProfileSave.addEventListener('click', async () => {
-      if (!inputProfileName) return;
-      const newName = inputProfileName.value.trim();
-      if (!newName) {
-        showToast('Name cannot be empty.', 'error');
-        return;
-      }
-
-      btnProfileSave.setAttribute('disabled', 'true');
-      btnProfileSave.textContent = 'Saving...';
-      flashStatus(nameSaveStatus, 'saving');
-
-      try {
-        if (isMockMode) {
-          if (profileDisplayName) profileDisplayName.textContent = newName;
-          if (profileNameDisplayContainer) profileNameDisplayContainer.style.display = 'flex';
-          if (profileNameEditContainer) profileNameEditContainer.style.display = 'none';
-          flashStatus(nameSaveStatus, 'saved');
-          return;
-        }
-
-        const user = auth.currentUser;
-        if (!user) throw new Error('Authorization required.');
-
-        // Write to Firebase Auth and RTDB in parallel
-        await Promise.all([
-          updateProfile(user, { displayName: newName }),
-          set(ref(db, `users/${user.uid}/profile/displayName`), newName),
-          set(ref(db, `users/${user.uid}/displayName`), newName)
-        ]);
-
-        // Update DOM directly — zero reload
-        if (profileDisplayName) profileDisplayName.textContent = newName;
-
-        // Update local session storage cache
-        try {
-          const cached = JSON.parse(sessionStorage.getItem('profile_cache') || '{}');
-          cached.displayName = newName;
-          sessionStorage.setItem('profile_cache', JSON.stringify(cached));
-        } catch (e) {
-          console.warn('Failed to update name cache:', e);
-        }
-
-        if (profileNameDisplayContainer) profileNameDisplayContainer.style.display = 'flex';
-        if (profileNameEditContainer) profileNameEditContainer.style.display = 'none';
-        flashStatus(nameSaveStatus, 'saved');
-      } catch (err) {
-        showToast(err.message || 'Failed to update name.', 'error');
-        flashStatus(nameSaveStatus, 'error');
-      } finally {
-        btnProfileSave.removeAttribute('disabled');
-        btnProfileSave.textContent = 'Save';
-      }
-    });
-  }
-
-  // Edit Role/Title Actions
-  if (btnRoleEdit) {
-    btnRoleEdit.addEventListener('click', () => {
-      if (inputProfileRole) {
-        inputProfileRole.value = profileRoleTitle.textContent;
-      }
-      if (profileRoleDisplayContainer) profileRoleDisplayContainer.style.display = 'none';
-      if (profileRoleEditContainer) profileRoleEditContainer.style.display = 'flex';
-      if (inputProfileRole) inputProfileRole.focus();
-    });
-  }
-
-  if (btnRoleCancel) {
-    btnRoleCancel.addEventListener('click', () => {
-      if (profileRoleDisplayContainer) profileRoleDisplayContainer.style.display = 'flex';
-      if (profileRoleEditContainer) profileRoleEditContainer.style.display = 'none';
-    });
-  }
-
-  if (btnRoleSave) {
-    btnRoleSave.addEventListener('click', async () => {
-      if (!inputProfileRole) return;
-      const newRole = inputProfileRole.value.trim();
-      if (!newRole) {
-        showToast('Role cannot be empty.', 'error');
-        return;
-      }
-
-      btnRoleSave.setAttribute('disabled', 'true');
-      btnRoleSave.textContent = 'Saving...';
-      flashStatus(roleSaveStatus, 'saving');
-
-      try {
-        if (isMockMode) {
-          if (profileRoleTitle) profileRoleTitle.textContent = newRole;
-          if (profileRoleDisplayContainer) profileRoleDisplayContainer.style.display = 'flex';
-          if (profileRoleEditContainer) profileRoleEditContainer.style.display = 'none';
-          flashStatus(roleSaveStatus, 'saved');
-          return;
-        }
-
-        const user = auth.currentUser;
-        if (!user) throw new Error('Authorization required.');
-
-        await Promise.all([
-          set(ref(db, `users/${user.uid}/profile/roleTitle`), newRole),
-          set(ref(db, `users/${user.uid}/roleTitle`), newRole),
-          set(ref(db, `users/${user.uid}/domain`), newRole),
-          set(ref(db, `users/${user.uid}/domainName`), newRole)
-        ]);
-
-        // Update DOM directly — zero reload
-        if (profileRoleTitle) profileRoleTitle.textContent = newRole;
-
-        // Update local session storage cache
-        try {
-          const cached = JSON.parse(sessionStorage.getItem('profile_cache') || '{}');
-          cached.roleTitle = newRole;
-          sessionStorage.setItem('profile_cache', JSON.stringify(cached));
-        } catch (e) {
-          console.warn('Failed to update role cache:', e);
-        }
-
-        if (profileRoleDisplayContainer) profileRoleDisplayContainer.style.display = 'flex';
-        if (profileRoleEditContainer) profileRoleEditContainer.style.display = 'none';
-        flashStatus(roleSaveStatus, 'saved');
-      } catch (err) {
-        showToast(err.message || 'Failed to update professional title.', 'error');
-        flashStatus(roleSaveStatus, 'error');
-      } finally {
-        btnRoleSave.removeAttribute('disabled');
-        btnRoleSave.textContent = 'Save';
-      }
-    });
-  }
+  window.addEventListener('storage', (e) => {
+    if (e.key === 'profile_cache') {
+      loadProfileData();
+    }
+  });
 
   // Load Analysis History Table
   async function loadAnalysisHistory() {

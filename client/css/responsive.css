@@ -2743,13 +2743,36 @@ textarea:focus-visible {
   background: var(--grad-primary);
   border: none;
   color: #fff;
-  padding: 0.95rem;
+  height: 48px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   border-radius: 8px;
   font-weight: 600;
   font-size: 1rem;
   cursor: pointer;
   transition: var(--transition-smooth);
   box-shadow: 0 4px 15px rgba(16, 185, 129, 0.2);
+  width: 100%;
+  box-sizing: border-box;
+  margin: 0;
+}
+
+.loading-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(3, 7, 18, 0.85);
+  backdrop-filter: blur(8px);
+  z-index: 9999;
+  display: none; /* Flex applied via JS */
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-main);
+  box-sizing: border-box;
 }
 
 .btn-landing-analyze:hover {

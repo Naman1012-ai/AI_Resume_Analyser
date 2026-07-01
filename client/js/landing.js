@@ -1,7 +1,7 @@
 import { db, auth, isMockMode } from './firebase-config.js';
 import { ref, get, update, set } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signInWithRedirect, getRedirectResult, GoogleAuthProvider } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-import { escapeHTML, showToast, mapFriendlyErrorMessage, getFriendlyAuthErrorMessage } from './utils.js';
+import { escapeHTML, showToast, mapFriendlyErrorMessage, getFriendlyAuthErrorMessage, getCompatibilityDetails, showAnalysisProgress } from './utils.js';
 import { API_BASE } from './api.js';
 
 const googleProvider = new GoogleAuthProvider();
@@ -335,32 +335,11 @@ document.addEventListener('DOMContentLoaded', () => {
     if (teaserTargetRole) teaserTargetRole.textContent = `Target Role: ${analysis.targetRole}`;
     
     const score = analysis.score || 0;
-    let badgeText = '';
-    let color = '';
-    let bg = '';
-    let border = '';
-    
-    if (score < 40) {
-      badgeText = 'Compatibility: Critical';
-      color = '#f43f5e';
-      bg = 'rgba(244, 63, 94, 0.08)';
-      border = '1px solid rgba(244, 63, 94, 0.2)';
-    } else if (score >= 40 && score <= 59) {
-      badgeText = 'Compatibility: Moderate';
-      color = '#f59e0b';
-      bg = 'rgba(245, 158, 11, 0.08)';
-      border = '1px solid rgba(245, 158, 11, 0.2)';
-    } else if (score >= 60 && score <= 79) {
-      badgeText = 'Compatibility: Strong';
-      color = '#06b6d4';
-      bg = 'rgba(6, 182, 212, 0.08)';
-      border = '1px solid rgba(6, 182, 212, 0.2)';
-    } else {
-      badgeText = 'Compatibility: Extreme';
-      color = '#10b981';
-      bg = 'rgba(16, 185, 129, 0.08)';
-      border = '1px solid rgba(16, 185, 129, 0.2)';
-    }
+    const details = getCompatibilityDetails(score);
+    const badgeText = `Compatibility: ${details.label}`;
+    const color = details.color;
+    const bg = details.bg.replace('0.04', '0.08');
+    const border = `1px solid ${details.borderColor.replace('0.3', '0.2')}`;
     
     if (teaserScoreBadge) {
       teaserScoreBadge.textContent = badgeText;
@@ -422,15 +401,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       // Show loading overlay
-      const loader = document.createElement('div');
-      loader.className = 'loading-overlay';
-      loader.id = 'loading-overlay';
-      loader.innerHTML = `
-        <div class="spinner"></div>
-        <p style="margin-top: 1rem; font-weight: 600;">Running free ATS scan in memory...</p>
-      `;
-      document.body.appendChild(loader);
-      loader.style.display = 'flex';
+      const progressTracker = showAnalysisProgress();
 
       btnLandingAnalyze.setAttribute('disabled', 'true');
       btnLandingAnalyze.textContent = 'Scanning CV...';
@@ -455,8 +426,11 @@ document.addEventListener('DOMContentLoaded', () => {
             }
           };
           window.appState.activeAnalysis = mockAnalysis;
-          showToast('Analysis completed successfully (Free Check)!', 'success');
-          showTeaserDashboard(mockAnalysis);
+          
+          progressTracker.complete(() => {
+            showToast('Analysis completed successfully (Free Check)!', 'success');
+            showTeaserDashboard(mockAnalysis);
+          });
           return;
         }
 
@@ -471,14 +445,16 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         window.appState.activeAnalysis = result;
-        showToast('Free scan completed successfully!', 'success');
-        showTeaserDashboard(result);
+        
+        progressTracker.complete(() => {
+          showTeaserDashboard(result);
+        });
 
       } catch (error) {
         console.error('Public analysis error:', error);
+        progressTracker.cancel();
         showLandingError(mapFriendlyErrorMessage(error));
       } finally {
-        loader.remove();
         btnLandingAnalyze.removeAttribute('disabled');
         btnLandingAnalyze.textContent = 'Analyze My Resume';
       }

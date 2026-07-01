@@ -27,17 +27,59 @@ export function formatTimeAgo(dateStr) {
   return new Date(dateStr).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
 
+// getCompatibilityDetails helper
+export function getCompatibilityDetails(score) {
+  let label = '';
+  let color = '';
+  let borderColor = '';
+  let bg = '';
+  let ratingClass = '';
+
+  if (score >= 90) {
+    label = 'Excellent Match';
+    ratingClass = 'extreme';
+    color = '#10b981'; // Emerald
+    borderColor = 'rgba(16, 185, 129, 0.3)';
+    bg = 'rgba(16, 185, 129, 0.04)';
+  } else if (score >= 80) {
+    label = 'Strong Match';
+    ratingClass = 'strong';
+    color = '#06b6d4'; // Cyan
+    borderColor = 'rgba(6, 182, 212, 0.3)';
+    bg = 'rgba(6, 182, 212, 0.04)';
+  } else if (score >= 70) {
+    label = 'Good Match';
+    ratingClass = 'medium'; // Blue
+    color = '#3b82f6'; // Blue
+    borderColor = 'rgba(59, 130, 246, 0.3)';
+    bg = 'rgba(59, 130, 246, 0.04)';
+  } else if (score >= 60) {
+    label = 'Moderate Match';
+    ratingClass = 'moderate';
+    color = '#f59e0b'; // Amber
+    borderColor = 'rgba(245, 158, 11, 0.3)';
+    bg = 'rgba(245, 158, 11, 0.04)';
+  } else if (score >= 50) {
+    label = 'Weak Match';
+    ratingClass = 'low'; // Red-orange (low class uses rose)
+    color = '#f97316'; // Orange
+    borderColor = 'rgba(249, 115, 22, 0.3)';
+    bg = 'rgba(249, 115, 22, 0.04)';
+  } else {
+    label = 'Low Match';
+    ratingClass = 'critical';
+    color = '#f43f5e'; // Rose
+    borderColor = 'rgba(244, 63, 94, 0.3)';
+    bg = 'rgba(244, 63, 94, 0.04)';
+  }
+
+  return { label, ratingClass, color, borderColor, bg };
+}
+
 // getStatusBadge helper
 export function getStatusBadge(score) {
-  if (score < 40) {
-    return '<span style="display:inline-block;padding:0.2rem 0.6rem;border-radius:9999px;font-size:0.75rem;font-weight:700;background:rgba(244,63,94,0.12);color:#f43f5e;">Compatibility: Critical</span>';
-  } else if (score >= 40 && score <= 59) {
-    return '<span style="display:inline-block;padding:0.2rem 0.6rem;border-radius:9999px;font-size:0.75rem;font-weight:700;background:rgba(245,158,11,0.12);color:#f59e0b;">Compatibility: Moderate</span>';
-  } else if (score >= 60 && score <= 79) {
-    return '<span style="display:inline-block;padding:0.2rem 0.6rem;border-radius:9999px;font-size:0.75rem;font-weight:700;background:rgba(6,182,212,0.12);color:#06b6d4;">Compatibility: Strong</span>';
-  } else {
-    return '<span style="display:inline-block;padding:0.2rem 0.6rem;border-radius:9999px;font-size:0.75rem;font-weight:700;background:rgba(16,185,129,0.12);color:#10b981;">Compatibility: Extreme</span>';
-  }
+  const details = getCompatibilityDetails(score);
+  return `<span style="display:inline-block;padding:0.2rem 0.6rem;border-radius:9999px;font-size:0.75rem;font-weight:700;background:${details.bg.replace('0.04', '0.12')};color:${details.color};">Compatibility: ${details.label}</span>`;
 }
 
 // mapFriendlyErrorMessage helper to sanitize raw backend Exceptions, stack traces, and HTTP codes into empathetic action-oriented statements
@@ -281,6 +323,178 @@ export function showPersistentNotice(message, container = null) {
     noticeDiv.style.maxWidth = '380px';
     document.body.appendChild(noticeDiv);
   }
+}
+
+// showAnalysisProgress helper
+export function showAnalysisProgress() {
+  const overlay = document.createElement('div');
+  overlay.className = 'loading-overlay';
+  overlay.id = 'loading-overlay';
+  overlay.style.display = 'flex';
+
+  const card = document.createElement('div');
+  card.className = 'analysis-progress-card';
+
+  card.innerHTML = `
+    <div class="progress-header">
+      <div class="processing-pulse"></div>
+      <h3 class="progress-title">Analyzing Resume</h3>
+    </div>
+    
+    <div class="progress-container">
+      <div class="progress-bar-label">
+        <span class="progress-status-text" id="progress-status-text">Uploading Resume...</span>
+        <span class="progress-percent" id="progress-percent">0%</span>
+      </div>
+      <div class="progress-bar-track">
+        <div class="progress-bar-fill" id="progress-bar-fill" style="width: 0%"></div>
+      </div>
+    </div>
+    
+    <ul class="analysis-stages-list" id="analysis-stages-list"></ul>
+  `;
+
+  overlay.appendChild(card);
+  document.body.appendChild(overlay);
+
+  const stages = [
+    'Uploading Resume',
+    'Parsing PDF',
+    'Extracting Resume Content',
+    'Detecting Skills',
+    'Calculating ATS Score',
+    'Running AI Resume Analysis',
+    'Generating Skill Gap',
+    'Preparing Interview Questions',
+    'Building Learning Roadmap',
+    'Saving Analysis',
+    'Finalizing Report'
+  ];
+
+  const listContainer = overlay.querySelector('#analysis-stages-list');
+  stages.forEach((stage, idx) => {
+    const li = document.createElement('li');
+    li.className = 'stage-item pending';
+    li.id = `stage-item-${idx}`;
+    li.innerHTML = `
+      <span class="stage-icon pending"></span>
+      <span class="stage-name">${stage}</span>
+    `;
+    listContainer.appendChild(li);
+  });
+
+  const progressBarFill = overlay.querySelector('#progress-bar-fill');
+  const progressPercentText = overlay.querySelector('#progress-percent');
+  const progressStatusText = overlay.querySelector('#progress-status-text');
+
+  let currentPercent = 0;
+  let activeStageIdx = 0;
+  let timer = null;
+
+  // Function to set a stage state
+  function updateStageUI(idx, state) {
+    const li = overlay.querySelector(`#stage-item-${idx}`);
+    if (!li) return;
+    
+    const icon = li.querySelector('.stage-icon');
+    li.className = `stage-item ${state}`;
+    if (icon) {
+      icon.className = `stage-icon ${state}`;
+    }
+
+    // Auto scroll the list if needed to keep active stage in view
+    if (state === 'active') {
+      li.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  }
+
+  // Set the first stage as active
+  updateStageUI(0, 'active');
+
+  // Starts the progress bar crawl
+  function startCrawl() {
+    timer = setInterval(() => {
+      if (currentPercent < 95) {
+        // Slow down increments as we approach 95%
+        let increment = 0;
+        if (currentPercent < 30) {
+          increment = Math.random() * 2 + 1; // 1-3%
+        } else if (currentPercent < 60) {
+          increment = Math.random() * 1.5 + 0.5; // 0.5-2%
+        } else if (currentPercent < 85) {
+          increment = Math.random() * 1 + 0.2; // 0.2-1.2%
+        } else {
+          increment = Math.random() * 0.3 + 0.05; // very slow crawl (0.05-0.35%)
+        }
+        
+        currentPercent = Math.min(95, currentPercent + increment);
+        progressBarFill.style.width = `${currentPercent}%`;
+        progressPercentText.textContent = `${Math.floor(currentPercent)}%`;
+
+        // Resolve stage index based on progress
+        const targetStageIdx = Math.min(
+          stages.length - 2, // crawl up to Saving Analysis
+          Math.floor((currentPercent / 95) * (stages.length - 1))
+        );
+
+        if (targetStageIdx !== activeStageIdx) {
+          // Complete previous stages
+          for (let i = activeStageIdx; i < targetStageIdx; i++) {
+            updateStageUI(i, 'completed');
+          }
+          activeStageIdx = targetStageIdx;
+          updateStageUI(activeStageIdx, 'active');
+          progressStatusText.textContent = `${stages[activeStageIdx]}...`;
+        }
+      }
+    }, 200);
+  }
+
+  startCrawl();
+
+  // Complete function to call when backend completes
+  function complete(callback) {
+    if (timer) clearInterval(timer);
+    
+    // Set active stage to Finalizing Report
+    for (let i = activeStageIdx; i < stages.length - 1; i++) {
+      updateStageUI(i, 'completed');
+    }
+    
+    activeStageIdx = stages.length - 1;
+    updateStageUI(activeStageIdx, 'active');
+    progressStatusText.textContent = `${stages[activeStageIdx]}...`;
+
+    // Move progress bar to 100%
+    progressBarFill.style.transition = 'width 0.4s cubic-bezier(0.1, 0.8, 0.3, 1)';
+    progressBarFill.style.width = '100%';
+    progressPercentText.textContent = '100%';
+
+    setTimeout(() => {
+      updateStageUI(activeStageIdx, 'completed');
+      progressStatusText.textContent = 'Analysis Completed';
+      
+      // Animate card out
+      card.style.transition = 'all 0.3s ease';
+      card.style.transform = 'translateY(-15px)';
+      card.style.opacity = '0';
+      overlay.style.transition = 'opacity 0.3s ease';
+      overlay.style.opacity = '0';
+
+      setTimeout(() => {
+        overlay.remove();
+        if (callback) callback();
+      }, 300);
+    }, 800); // Allow user to see completed state
+  }
+
+  // Cancel/Error function
+  function cancel() {
+    if (timer) clearInterval(timer);
+    overlay.remove();
+  }
+
+  return { complete, cancel };
 }
 
 

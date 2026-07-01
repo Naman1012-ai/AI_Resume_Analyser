@@ -1,6 +1,6 @@
 import { auth, isMockMode } from './firebase-config.js';
 import { FirebaseService } from './api.js';
-import { escapeHTML, formatTimeAgo, showToast } from './utils.js';
+import { escapeHTML, formatTimeAgo, showToast, showAnalysisProgress } from './utils.js';
 
 document.addEventListener('DOMContentLoaded', () => {
   const dropZone = document.getElementById('drop-zone');
@@ -145,15 +145,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       // Show loader
-      const loader = document.createElement('div');
-      loader.className = 'loading-overlay';
-      loader.id = 'loading-overlay';
-      loader.innerHTML = `
-        <div class="spinner"></div>
-        <p style="margin-top: 1rem; font-weight: 600;">Running ATS analysis pipeline...</p>
-      `;
-      document.body.appendChild(loader);
-      loader.style.display = 'flex';
+      const progressTracker = showAnalysisProgress();
 
       btnAnalyze.setAttribute('disabled', 'true');
       btnAnalyze.textContent = 'Analyzing Resume...';
@@ -168,11 +160,13 @@ document.addEventListener('DOMContentLoaded', () => {
           // Simulate network delay
           await new Promise(resolve => setTimeout(resolve, 2000));
           const mockId = 'mock_' + Date.now();
-          showToast('Analysis completed (Mock Mode)!', 'success');
           
-          sessionStorage.setItem('activeAnalysisId', mockId);
-          const mockParam = isMockMode ? '&mock=true' : '';
-          window.location.href = `analysis.html?id=${mockId}${mockParam}`;
+          progressTracker.complete(() => {
+            showToast('Analysis completed (Mock Mode)!', 'success');
+            sessionStorage.setItem('activeAnalysisId', mockId);
+            const mockParam = isMockMode ? '&mock=true' : '';
+            window.location.href = `analysis.html?id=${mockId}${mockParam}`;
+          });
           return;
         }
 
@@ -194,17 +188,19 @@ document.addEventListener('DOMContentLoaded', () => {
         FirebaseService.clearCache();
         sessionStorage.setItem('activeAnalysisId', result.analysisId);
         
-        showToast('Analysis completed successfully!', 'success');
-        const mockParam = isMockMode ? '&mock=true' : '';
-        window.location.href = `analysis.html?id=${result.analysisId}${mockParam}`;
+        progressTracker.complete(() => {
+          showToast('Analysis completed successfully!', 'success');
+          const mockParam = isMockMode ? '&mock=true' : '';
+          window.location.href = `analysis.html?id=${result.analysisId}${mockParam}`;
+        });
 
       } catch (error) {
         console.error('Analysis error:', error);
+        progressTracker.cancel();
         showToast(error.message || 'Failed to analyze resume.', 'error');
         btnAnalyze.removeAttribute('disabled');
         btnAnalyze.textContent = 'Run Pipeline Analysis';
       } finally {
-        loader.remove();
         if (btnRemoveFile) btnRemoveFile.removeAttribute('disabled');
       }
     });

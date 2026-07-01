@@ -34,92 +34,72 @@
         <!-- Accordion Container -->
         <div class="settings-accordion" style="display: flex; flex-direction: column; gap: 1rem; max-width: 800px; margin: 0 auto; width: 100%;">
           
-          <!-- Section 1: Account Security -->
-          <div class="accordion-item panel" id="sec-security" style="padding: 0; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-xl); overflow: hidden; box-shadow: var(--shadow-card); transition: all var(--transition-fast);">
+          <!-- Section 1: Profile -->
+          <div class="accordion-item panel" id="sec-profile" style="padding: 0; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-xl); overflow: hidden; box-shadow: var(--shadow-card); transition: all var(--transition-fast);">
             <button class="accordion-trigger" style="width: 100%; padding: 1.5rem 2rem; background: transparent; border: none; text-align: left; display: flex; justify-content: space-between; align-items: center; cursor: pointer; color: var(--text-main); font-family: 'Outfit', sans-serif; font-size: 1.15rem; font-weight: 700;">
               <span style="display: flex; align-items: center; gap: 0.75rem;">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--emerald)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
-                Account Security
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--emerald)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                Profile Settings
               </span>
               <svg class="chevron-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="transition: transform var(--transition-fast);"><polyline points="6 9 12 15 18 9"></polyline></svg>
             </button>
             <div class="accordion-content" style="display: none; padding: 0 2rem 2rem 2rem; border-top: 1px solid var(--border-color); margin-top: 0; background: rgba(0,0,0,0.15);">
-              <p style="color: var(--text-muted); font-size: 0.8rem; margin: 1rem 0 1.5rem 0;">Update your password to ensure account safety. Google/GitHub authenticated users can manage connected providers in the Integrations tab.</p>
-              <form id="security-form" style="display: flex; flex-direction: column; gap: 1.25rem;">
-                <div class="form-group" style="display: flex; flex-direction: column; gap: 0.5rem;">
-                  <label for="current-password" style="font-size: 0.85rem; font-weight: 600; color: var(--text-main);">Current Password</label>
-                  <input type="password" id="current-password" required placeholder="Enter current password..." style="padding: 0.75rem 1rem; border-radius: var(--radius-md); border: 1px solid var(--border-color); background: rgba(0,0,0,0.3); color: var(--text-main); font-size: 0.9rem;">
-                </div>
-                <div class="form-group" style="display: flex; flex-direction: column; gap: 0.5rem;">
-                  <label for="new-password" style="font-size: 0.85rem; font-weight: 600; color: var(--text-main);">New Password</label>
-                  <input type="password" id="new-password" required placeholder="Enter new password..." style="padding: 0.75rem 1rem; border-radius: var(--radius-md); border: 1px solid var(--border-color); background: rgba(0,0,0,0.3); color: var(--text-main); font-size: 0.9rem;">
-                </div>
-                <div class="form-group" style="display: flex; flex-direction: column; gap: 0.5rem;">
-                  <label for="confirm-password" style="font-size: 0.85rem; font-weight: 600; color: var(--text-main);">Confirm New Password</label>
-                  <input type="password" id="confirm-password" required placeholder="Confirm new password..." style="padding: 0.75rem 1rem; border-radius: var(--radius-md); border: 1px solid var(--border-color); background: rgba(0,0,0,0.3); color: var(--text-main); font-size: 0.9rem;">
-                </div>
-                <button type="submit" id="btn-update-password" style="padding: 0.75rem 1.5rem; background: var(--grad-primary); border: none; border-radius: var(--radius-md); color: #030712; font-weight: 700; font-size: 0.85rem; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem; align-self: flex-start;">
-                  Update Password
-                </button>
-              </form>
-            </div>
-          </div>
-
-          <!-- Section 2: Preferences -->
-          <div class="accordion-item panel" id="sec-preferences" style="padding: 0; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-xl); overflow: hidden; box-shadow: var(--shadow-card); transition: all var(--transition-fast);">
-            <button class="accordion-trigger" style="width: 100%; padding: 1.5rem 2rem; background: transparent; border: none; text-align: left; display: flex; justify-content: space-between; align-items: center; cursor: pointer; color: var(--text-main); font-family: 'Outfit', sans-serif; font-size: 1.15rem; font-weight: 700;">
-              <span style="display: flex; align-items: center; gap: 0.75rem;">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--emerald)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
-                Application Preferences
-              </span>
-              <svg class="chevron-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="transition: transform var(--transition-fast);"><polyline points="6 9 12 15 18 9"></polyline></svg>
-            </button>
-            <div class="accordion-content" style="display: none; padding: 0 2rem 2rem 2rem; border-top: 1px solid var(--border-color); margin-top: 0; background: rgba(0,0,0,0.15);">
-              <p style="color: var(--text-muted); font-size: 0.8rem; margin: 1rem 0 1.5rem 0;">Configure application color scheme preferences and weekly summary alerts.</p>
-              <div style="display: flex; flex-direction: column; gap: 1.25rem;">
-                <div style="display: flex; justify-content: space-between; align-items: center; padding-bottom: 1rem; border-bottom: 1px solid var(--border-color);">
-                  <div>
-                    <div style="font-weight: 600; font-size: 0.9rem; color: var(--text-main);">App Color Theme</div>
-                    <div style="font-size: 0.75rem; color: var(--text-muted);">Toggle between high contrast Dark theme and light modes.</div>
+              <p style="color: var(--text-muted); font-size: 0.8rem; margin: 1rem 0 1.5rem 0;">Update your public profile display name and avatar photo URL.</p>
+              
+              <div style="display: flex; flex-direction: column; gap: 1.5rem; align-items: flex-start;">
+                
+                <div style="display: flex; align-items: center; gap: 1.25rem; width: 100%; flex-wrap: wrap;">
+                  <div style="position: relative; width: 64px; height: 64px; border-radius: 50%; overflow: hidden; background: rgba(255,255,255,0.05); border: 2px solid var(--border-color); flex-shrink: 0;">
+                    <img id="profile-photo-preview" src="assets/default-avatar.png" alt="Avatar" style="width: 100%; height: 100%; object-fit: cover; display: none;">
+                    <div id="profile-photo-fallback" style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; color: var(--text-muted);">
+                      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                    </div>
                   </div>
-                  <label class="switch-container" style="position: relative; display: inline-block; width: 44px; height: 24px;">
-                    <input type="checkbox" id="theme-toggle" style="opacity: 0; width: 0; height: 0;">
-                    <span class="switch-slider" style="position: absolute; cursor: pointer; inset: 0; background-color: rgba(255,255,255,0.1); border: 1px solid var(--border-color); border-radius: 24px; transition: .4s;"></span>
-                  </label>
+                  <div style="flex-grow: 1; display: flex; flex-direction: column; gap: 1rem; min-width: 200px;">
+                    <div class="form-group" style="display: flex; flex-direction: column; gap: 0.5rem;">
+                      <label for="profile-name" style="font-size: 0.85rem; font-weight: 600; color: var(--text-main);">Display Name</label>
+                      <input type="text" id="profile-name" placeholder="Enter display name..." style="padding: 0.75rem 1rem; border-radius: var(--radius-md); border: 1px solid var(--border-color); background: rgba(0,0,0,0.3); color: var(--text-main); font-size: 0.9rem;">
+                    </div>
+
+                    <div class="form-group" style="display: flex; flex-direction: column; gap: 0.5rem;">
+                      <label for="profile-role" style="font-size: 0.85rem; font-weight: 600; color: var(--text-main);">Target Domain / Role</label>
+                      <input type="text" id="profile-role" placeholder="e.g. Software Engineer" style="padding: 0.75rem 1rem; border-radius: var(--radius-md); border: 1px solid var(--border-color); background: rgba(0,0,0,0.3); color: var(--text-main); font-size: 0.9rem;">
+                    </div>
+                    
+                    <div class="form-group" style="display: flex; flex-direction: column; gap: 0.5rem;">
+                      <label for="profile-photo-url" style="font-size: 0.85rem; font-weight: 600; color: var(--text-main);">Avatar Photo URL</label>
+                      <input type="url" id="profile-photo-url" placeholder="https://example.com/avatar.jpg" style="padding: 0.75rem 1rem; border-radius: var(--radius-md); border: 1px solid var(--border-color); background: rgba(0,0,0,0.3); color: var(--text-main); font-size: 0.9rem;">
+                    </div>
+                  </div>
                 </div>
-                <div style="display: flex; flex-direction: column; gap: 0.75rem;">
-                  <div style="font-weight: 600; font-size: 0.9rem; color: var(--text-main);">Email Notifications</div>
-                  <label style="display: flex; align-items: center; gap: 0.75rem; font-size: 0.85rem; color: var(--text-main); cursor: pointer;">
-                    <input type="checkbox" id="pref-weekly-stats" style="accent-color: var(--emerald);">
-                    Weekly ATS summary statistics
-                  </label>
-                  <label style="display: flex; align-items: center; gap: 0.75rem; font-size: 0.85rem; color: var(--text-main); cursor: pointer;">
-                    <input type="checkbox" id="pref-security-alerts" style="accent-color: var(--emerald);" checked disabled>
-                    Security login & credential alerts (required)
-                  </label>
-                </div>
+
+                <button id="btn-save-profile" style="padding: 0.75rem 1.5rem; background: var(--grad-primary); border: none; border-radius: var(--radius-md); color: #030712; font-weight: 700; font-size: 0.85rem; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;">
+                  Save Profile
+                </button>
+
               </div>
             </div>
           </div>
-          <!-- Section 3: Identity & Email Lifecycle -->
+          
+          <!-- Section 2: Identity -->
           <div class="accordion-item panel" id="sec-identity" style="padding: 0; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-xl); overflow: hidden; box-shadow: var(--shadow-card); transition: all var(--transition-fast);">
             <button class="accordion-trigger" style="width: 100%; padding: 1.5rem 2rem; background: transparent; border: none; text-align: left; display: flex; justify-content: space-between; align-items: center; cursor: pointer; color: var(--text-main); font-family: 'Outfit', sans-serif; font-size: 1.15rem; font-weight: 700;">
               <span style="display: flex; align-items: center; gap: 0.75rem;">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--emerald)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
-                Identity & Email Lifecycle
+                Identity Settings
               </span>
               <svg class="chevron-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="transition: transform var(--transition-fast);"><polyline points="6 9 12 15 18 9"></polyline></svg>
             </button>
             <div class="accordion-content" style="display: none; padding: 0 2rem 2rem 2rem; border-top: 1px solid var(--border-color); margin-top: 0; background: rgba(0,0,0,0.15);">
-              <p style="color: var(--text-muted); font-size: 0.8rem; margin: 1rem 0 1.5rem 0;">Manage your primary email verification, request password resets, and securely initiate email updates.</p>
+              <p style="color: var(--text-muted); font-size: 0.8rem; margin: 1rem 0 1.5rem 0;">Configure your email identity credentials, send verification links, and dispatch secure password reset emails.</p>
               
               <div style="display: flex; flex-direction: column; gap: 1.5rem;">
                 
-                <!-- Email Verification Status Row -->
-                <div style="display: flex; justify-content: space-between; align-items: center; padding-bottom: 1rem; border-bottom: 1px solid var(--border-color);">
+                <!-- Email Display & Verification Row -->
+                <div style="display: flex; justify-content: space-between; align-items: center; padding-bottom: 1rem; border-bottom: 1px solid var(--border-color); flex-wrap: wrap; gap: 1rem;">
                   <div>
-                    <div style="font-weight: 600; font-size: 0.9rem; color: var(--text-main);">Email Verification Status</div>
-                    <div id="verification-status-desc" style="font-size: 0.75rem; color: var(--text-muted);">Verifying your identity ensures full dashboard access.</div>
+                    <div style="font-weight: 600; font-size: 0.9rem; color: var(--text-main);">Primary Email Address</div>
+                    <div id="settings-email-display" style="font-size: 0.85rem; color: #fff; margin-top: 0.15rem; font-weight: 500;">...</div>
                   </div>
                   <div style="display: flex; align-items: center; gap: 1rem;">
                     <span id="verification-badge" style="font-size: 0.75rem; font-weight: 700; padding: 0.25rem 0.6rem; border-radius: 6px;">Checking...</span>
@@ -128,7 +108,7 @@
                 </div>
 
                 <!-- Password Reset Trigger Row -->
-                <div style="display: flex; justify-content: space-between; align-items: center; padding-bottom: 1rem; border-bottom: 1px solid var(--border-color);">
+                <div style="display: flex; justify-content: space-between; align-items: center; padding-bottom: 1rem; border-bottom: 1px solid var(--border-color); flex-wrap: wrap; gap: 1rem;">
                   <div>
                     <div style="font-weight: 600; font-size: 0.9rem; color: var(--text-main);">Password Reset Link</div>
                     <div style="font-size: 0.75rem; color: var(--text-muted);">Request a password reset instructions link sent directly to your active inbox.</div>
@@ -142,8 +122,8 @@
                   <p style="font-size: 0.75rem; color: var(--text-muted); line-height: 1.4; margin-bottom: 1rem;">
                     Enter a new primary email address. This sends a secure verification link to your new inbox. <strong style="color: var(--emerald);">Your primary database profile identity row does not update until you click the validation link.</strong>
                   </p>
-                  <form id="email-change-form" style="display: flex; gap: 0.75rem; max-width: 450px;">
-                    <input type="email" id="new-email-address" required placeholder="new-email@example.com" style="flex: 1; padding: 0.55rem 0.75rem; border-radius: var(--radius-md); border: 1px solid var(--border-color); background: rgba(0,0,0,0.3); color: var(--text-main); font-size: 0.85rem;">
+                  <form id="email-change-form" style="display: flex; gap: 0.75rem; max-width: 450px; flex-wrap: wrap;">
+                    <input type="email" id="new-email-address" required placeholder="new-email@example.com" style="flex: 1; min-width: 200px; padding: 0.55rem 0.75rem; border-radius: var(--radius-md); border: 1px solid var(--border-color); background: rgba(0,0,0,0.3); color: var(--text-main); font-size: 0.85rem;">
                     <button type="submit" id="btn-change-email" class="btn-apply-quota" style="padding: 0.55rem 1.25rem; font-size: 0.85rem; font-weight: 700;">Initiate Change</button>
                   </form>
                 </div>
@@ -152,21 +132,106 @@
             </div>
           </div>
 
-          <!-- Section 4: Danger Zone -->
-          <div class="accordion-item panel" id="sec-danger" style="padding: 0; background: rgba(244, 63, 94, 0.03); border: 1px solid rgba(244, 63, 94, 0.2); border-radius: var(--radius-xl); overflow: hidden; box-shadow: var(--shadow-card); transition: all var(--transition-fast);">
-            <button class="accordion-trigger" style="width: 100%; padding: 1.5rem 2rem; background: transparent; border: none; text-align: left; display: flex; justify-content: space-between; align-items: center; cursor: pointer; color: var(--rose-500); font-family: 'Outfit', sans-serif; font-size: 1.15rem; font-weight: 700;">
+          <!-- Section 3: Preferences -->
+          <div class="accordion-item panel" id="sec-preferences" style="padding: 0; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-xl); overflow: hidden; box-shadow: var(--shadow-card); transition: all var(--transition-fast);">
+            <button class="accordion-trigger" style="width: 100%; padding: 1.5rem 2rem; background: transparent; border: none; text-align: left; display: flex; justify-content: space-between; align-items: center; cursor: pointer; color: var(--text-main); font-family: 'Outfit', sans-serif; font-size: 1.15rem; font-weight: 700;">
               <span style="display: flex; align-items: center; gap: 0.75rem;">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
-                The Danger Zone
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--emerald)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+                Preferences
               </span>
               <svg class="chevron-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="transition: transform var(--transition-fast);"><polyline points="6 9 12 15 18 9"></polyline></svg>
             </button>
-            <div class="accordion-content" style="display: none; padding: 0 2rem 2rem 2rem; border-top: 1px solid rgba(244, 63, 94, 0.2); margin-top: 0; background: rgba(244, 63, 94, 0.05);">
-              <p style="color: var(--text-muted); font-size: 0.8rem; margin: 1rem 0 1.5rem 0;">Permanently wipe all custom analyses, settings, profile details, and authentication tokens from the server. <strong style="color: var(--rose, #f43f5e);">This action is absolute and cannot be reversed.</strong></p>
-              <button id="delete-account-btn" class="btn-danger-delete" style="padding: 0.85rem 1.75rem; background: #e11d48; border: 2px solid rgba(244, 63, 94, 0.5); border-radius: var(--radius-md, 8px); color: #fff; font-weight: 700; font-size: 0.9rem; cursor: pointer; display: inline-flex; align-items: center; gap: 0.6rem; letter-spacing: 0.01em; transition: all 200ms ease; box-shadow: 0 4px 12px rgba(225, 29, 72, 0.25);">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
-                Delete Account
-              </button>
+            <div class="accordion-content" style="display: none; padding: 0 2rem 2rem 2rem; border-top: 1px solid var(--border-color); margin-top: 0; background: rgba(0,0,0,0.15);">
+              <p style="color: var(--text-muted); font-size: 0.8rem; margin: 1rem 0 1.5rem 0;">Configure application color scheme preferences, notification subscriptions, and default resume languages.</p>
+              
+              <div style="display: flex; flex-direction: column; gap: 1.25rem;">
+                
+                <div style="display: flex; justify-content: space-between; align-items: center; padding-bottom: 1rem; border-bottom: 1px solid var(--border-color);">
+                  <div>
+                    <div style="font-weight: 600; font-size: 0.9rem; color: var(--text-main);">App Color Theme</div>
+                    <div style="font-size: 0.75rem; color: var(--text-muted);">Toggle between high contrast Dark theme and light modes.</div>
+                  </div>
+                  <label class="switch-container" style="position: relative; display: inline-block; width: 44px; height: 24px;">
+                    <input type="checkbox" id="theme-toggle" style="opacity: 0; width: 0; height: 0;">
+                    <span class="switch-slider" style="position: absolute; cursor: pointer; inset: 0; background-color: rgba(255,255,255,0.1); border: 1px solid var(--border-color); border-radius: 24px; transition: .4s;"></span>
+                  </label>
+                </div>
+                
+                <div style="display: flex; justify-content: space-between; align-items: center; padding-bottom: 1rem; border-bottom: 1px solid var(--border-color); flex-wrap: wrap; gap: 1rem;">
+                  <div>
+                    <div style="font-weight: 600; font-size: 0.9rem; color: var(--text-main);">Default Resume Language</div>
+                    <div style="font-size: 0.75rem; color: var(--text-muted);">Select the language primarily used when scanning resume contents.</div>
+                  </div>
+                  <select id="pref-language" style="padding: 0.5rem 1rem; border-radius: var(--radius-md); border: 1px solid var(--border-color); background: rgba(0,0,0,0.3); color: var(--text-main); font-size: 0.85rem; font-weight: 600;">
+                    <option value="en">English (US/UK)</option>
+                    <option value="es">Spanish</option>
+                    <option value="fr">French</option>
+                    <option value="de">German</option>
+                    <option value="hi">Hindi</option>
+                    <option value="zh">Chinese</option>
+                  </select>
+                </div>
+
+                <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+                  <div style="font-weight: 600; font-size: 0.9rem; color: var(--text-main);">Email Notifications</div>
+                  <label style="display: flex; align-items: center; gap: 0.75rem; font-size: 0.85rem; color: var(--text-main); cursor: pointer;">
+                    <input type="checkbox" id="pref-weekly-stats" style="accent-color: var(--emerald);">
+                    Weekly ATS summary statistics
+                  </label>
+                  <label style="display: flex; align-items: center; gap: 0.75rem; font-size: 0.85rem; color: var(--text-main); cursor: pointer;">
+                    <input type="checkbox" id="pref-security-alerts" style="accent-color: var(--emerald);" checked disabled>
+                    Security login & credential alerts (required)
+                  </label>
+                </div>
+
+              </div>
+            </div>
+          </div>
+
+          <!-- Section 4: Privacy -->
+          <div class="accordion-item panel" id="sec-privacy" style="padding: 0; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-xl); overflow: hidden; box-shadow: var(--shadow-card); transition: all var(--transition-fast);">
+            <button class="accordion-trigger" style="width: 100%; padding: 1.5rem 2rem; background: transparent; border: none; text-align: left; display: flex; justify-content: space-between; align-items: center; cursor: pointer; color: var(--text-main); font-family: 'Outfit', sans-serif; font-size: 1.15rem; font-weight: 700;">
+              <span style="display: flex; align-items: center; gap: 0.75rem;">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--rose)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="12" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                Privacy & Data
+              </span>
+              <svg class="chevron-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="transition: transform var(--transition-fast);"><polyline points="6 9 12 15 18 9"></polyline></svg>
+            </button>
+            <div class="accordion-content" style="display: none; padding: 0 2rem 2rem 2rem; border-top: 1px solid var(--border-color); margin-top: 0; background: rgba(0,0,0,0.15);">
+              <p style="color: var(--text-muted); font-size: 0.8rem; margin: 1rem 0 1.5rem 0;">Manage your data download rights, export all resume history, or permanently delete your account profile.</p>
+              
+              <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+                
+                <!-- Data Export Row -->
+                <div style="display: flex; justify-content: space-between; align-items: center; padding-bottom: 1.25rem; border-bottom: 1px solid var(--border-color); flex-wrap: wrap; gap: 1rem;">
+                  <div>
+                    <div style="font-weight: 600; font-size: 0.9rem; color: var(--text-main);">Export Profile Data</div>
+                    <div style="font-size: 0.75rem; color: var(--text-muted);">Download a complete copy of your saved resume scan records and setting states in JSON format.</div>
+                  </div>
+                  <button id="btn-export-data" class="btn-apply-quota" style="padding: 0.45rem 1rem; font-size: 0.8rem; background: rgba(255,255,255,0.05); border-color: var(--border-color); color: #fff; display: inline-flex; align-items: center; gap: 0.4rem;">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                    Export JSON
+                  </button>
+                </div>
+
+                <!-- Danger Zone Info -->
+                <div style="background: rgba(244, 63, 94, 0.04); border: 1px solid rgba(244, 63, 94, 0.2); border-radius: var(--radius-md); padding: 1.25rem; display: flex; flex-direction: column; gap: 1rem; align-items: flex-start;">
+                  <div>
+                    <div style="font-weight: 700; font-size: 0.9rem; color: var(--rose); display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.25rem;">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+                      Danger Zone: Account Deletion
+                    </div>
+                    <div style="font-size: 0.75rem; color: var(--text-muted); line-height: 1.45;">
+                      Permanently wipe all custom analyses, settings, profile details, and authentication tokens from the server. <strong style="color: var(--rose);">This action is absolute and cannot be reversed.</strong>
+                    </div>
+                  </div>
+                  <button id="delete-account-btn" class="btn-danger-delete" style="padding: 0.65rem 1.25rem; background: #e11d48; border: 2px solid rgba(244, 63, 94, 0.5); border-radius: var(--radius-md, 8px); color: #fff; font-weight: 700; font-size: 0.85rem; cursor: pointer; display: inline-flex; align-items: center; gap: 0.5rem; transition: all 200ms ease; box-shadow: 0 4px 12px rgba(225, 29, 72, 0.25);">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
+                    Delete Account
+                  </button>
+                </div>
+
+              </div>
             </div>
           </div>
 

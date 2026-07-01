@@ -165,6 +165,8 @@ async function processResumeAnalysis(userId, file, targetRole) {
     score: scoreAnalysis.overallScore,
     atsScore: scoreAnalysis.overallScore,
     breakdown: scoreAnalysis.breakdown,
+    weights: scoreAnalysis.weights,
+    justifications: scoreAnalysis.justifications,
     explanations: aiAnalysis.categoryExplanations || {},
     strengths: aiAnalysis.strengths,
     weaknesses: aiAnalysis.weaknesses,
