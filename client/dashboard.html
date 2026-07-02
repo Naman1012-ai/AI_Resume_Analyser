@@ -40,7 +40,13 @@
             <h2 style="font-size: 1.5rem; font-weight: 700; margin: 0;">Welcome back, <span id="welcome-username">Developer</span>.</h2>
             <p style="color: var(--text-muted); margin: 0.25rem 0 0 0; font-size: 0.95rem;">Your resume intelligence dashboard is ready.</p>
           </div>
+          <button id="btn-trigger-report-issue" style="padding: 0.65rem 1.25rem; font-size: 0.85rem; font-weight: 700; display: inline-flex; align-items: center; gap: 0.5rem; border-radius: var(--radius-md); background: rgba(244, 63, 94, 0.08); color: var(--rose, #f43f5e); border: 1px solid rgba(244, 63, 94, 0.15); cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='rgba(244, 63, 94, 0.15)'" onmouseout="this.style.background='rgba(244, 63, 94, 0.08)'">
+            <span>🚩</span> Report Issue
+          </button>
         </div>
+
+        <!-- Recovery Banner Container -->
+        <div id="recovery-banner-container"></div>
 
         <!-- Empty State Banner -->
         <div id="dashboard-empty-state-banner" style="display: none; text-align: center; padding: 4rem 2rem; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-xl); box-shadow: var(--shadow-card); margin-top: var(--spacing-24);">
@@ -261,6 +267,62 @@
 
       </div>
     </main>
+  </div>
+
+  <!-- Report Issue Modal Overlay -->
+  <div id="issue-modal-overlay" style="display: none; position: fixed; inset: 0; background: rgba(0, 0, 0, 0.75); z-index: 9999; align-items: center; justify-content: center; backdrop-filter: blur(4px);">
+    <div class="panel" style="width: 100%; max-width: 480px; padding: 2rem; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-xl); box-shadow: var(--shadow-card); position: relative;">
+      
+      <!-- Modal Header -->
+      <h3 style="font-size: 1.25rem; font-weight: 700; margin: 0 0 1rem 0; color: var(--text-main); display: flex; align-items: center; gap: 0.5rem;">
+        <span>🚩</span> Report an Issue
+      </h3>
+      
+      <!-- Issue Form View -->
+      <div id="issue-form-view">
+        <form id="issue-report-form">
+          <div class="form-group" style="display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 1.25rem;">
+            <label for="issue-type" style="font-size: 0.85rem; font-weight: 600; color: var(--text-muted);">Issue Type</label>
+            <select id="issue-type" required style="width: 100%; padding: 0.75rem 1rem; border-radius: var(--radius-md); border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-main); font-size: 0.9rem; outline: none; cursor: pointer;">
+              <option value="Bug">Bug</option>
+              <option value="Wrong Analysis">Wrong Analysis</option>
+              <option value="UI Problem">UI Problem</option>
+              <option value="Account Issue">Account Issue</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+          
+          <div class="form-group" style="display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 0.5rem;">
+            <label for="issue-description" style="font-size: 0.85rem; font-weight: 600; color: var(--text-muted);">Describe the issue</label>
+            <textarea id="issue-description" required minlength="10" maxlength="1000" placeholder="Tell us what happened and what you expected instead..." style="width: 100%; height: 120px; padding: 0.75rem 1rem; border-radius: var(--radius-md); border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-main); font-size: 0.9rem; outline: none; resize: none; line-height: 1.5;"></textarea>
+          </div>
+          
+          <!-- Live character count -->
+          <div style="text-align: right; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 1.5rem;">
+            <span id="issue-char-count">0</span> / 1000 characters
+          </div>
+          
+          <!-- Inline Error message -->
+          <div id="issue-error-msg" style="display: none; color: var(--rose, #f43f5e); font-size: 0.82rem; font-weight: 600; margin-bottom: 1.25rem; text-align: left; padding: 0.5rem 0.75rem; background: rgba(244, 63, 94, 0.05); border: 1px solid rgba(244, 63, 94, 0.15); border-radius: var(--radius-md, 8px);"></div>
+          
+          <!-- Actions -->
+          <div style="display: flex; justify-content: flex-end; gap: 0.75rem; border-top: 1px solid var(--border-color); padding-top: 1.25rem;">
+            <button type="button" id="btn-cancel-issue" style="padding: 0.65rem 1.25rem; border: 1px solid var(--border-color); background: rgba(255,255,255,0.02); color: var(--text-main); font-weight: 600; border-radius: var(--radius-md); cursor: pointer; transition: all 0.2s;">Cancel</button>
+            <button type="submit" id="btn-submit-issue" class="btn-primary" style="padding: 0.65rem 1.5rem; font-weight: 700; border-radius: var(--radius-md); cursor: pointer;">Submit Report</button>
+          </div>
+        </form>
+      </div>
+      
+      <!-- Issue Success View -->
+      <div id="issue-success-view" style="display: none; text-align: center; padding: 1rem 0;">
+        <div style="font-size: 2.5rem; margin-bottom: 0.75rem; color: var(--emerald);">✅</div>
+        <p style="color: var(--text-main); font-size: 0.95rem; font-weight: 600; line-height: 1.6; margin-bottom: 1.5rem;">
+          Your report has been submitted. We'll look into it soon.
+        </p>
+        <button type="button" id="btn-close-issue-success" style="padding: 0.65rem 2rem; background: var(--emerald); border: none; color: #ffffff; font-weight: 700; border-radius: var(--radius-md); cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='var(--emerald-hover, #059669)'" onmouseout="this.style.background='var(--emerald)'">Close</button>
+      </div>
+
+    </div>
   </div>
 
   <script type="module" src="js/firebase-config.js"></script>

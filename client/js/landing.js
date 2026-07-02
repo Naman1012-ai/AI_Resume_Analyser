@@ -411,6 +411,22 @@ document.addEventListener('DOMContentLoaded', () => {
       formData.append('targetRole', selectedRole);
 
       try {
+        const storeAnonymousAndCache = async (sessionId, data) => {
+          try {
+            const storeRes = await fetch(`${API_BASE}/analysis/store-anonymous`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ sessionId, analysisData: data })
+            });
+            if (!storeRes.ok) {
+              console.warn('Anonymous analysis store failed');
+            }
+          } catch (storeErr) {
+            console.warn('Anonymous analysis store error:', storeErr);
+          }
+          sessionStorage.setItem('pendingAnalysisId', sessionId);
+        };
+
         if (isMockMode) {
           // Simulate network delay
           await new Promise(resolve => setTimeout(resolve, 2000));
@@ -425,6 +441,9 @@ document.addEventListener('DOMContentLoaded', () => {
               missingSkills: ['Docker', 'CI/CD Pipelines', 'System Design']
             }
           };
+          const sessionId = 'anon_' + Date.now() + '_' + Math.random().toString(36).substring(2, 11);
+          await storeAnonymousAndCache(sessionId, mockAnalysis);
+          mockAnalysis.analysisId = sessionId;
           window.appState.activeAnalysis = mockAnalysis;
           
           progressTracker.complete(() => {
@@ -444,6 +463,9 @@ document.addEventListener('DOMContentLoaded', () => {
           throw new Error(result.message || 'Analysis pipeline execution failed.');
         }
 
+        const sessionId = 'anon_' + Date.now() + '_' + Math.random().toString(36).substring(2, 11);
+        await storeAnonymousAndCache(sessionId, result);
+        result.analysisId = sessionId;
         window.appState.activeAnalysis = result;
         
         progressTracker.complete(() => {
@@ -475,12 +497,13 @@ document.addEventListener('DOMContentLoaded', () => {
           handleAuthSessionBridge(user);
           return;
         } else {
-          // Cache guest report details
-          if (window.appState.activeAnalysis) {
-            sessionStorage.setItem('pendingReportAction', 'true');
-            sessionStorage.setItem('pendingGuestReport', JSON.stringify(window.appState.activeAnalysis));
+          const pendingId = sessionStorage.getItem('pendingAnalysisId');
+          if (pendingId) {
+            sessionStorage.setItem('pendingAnalysisSource', 'anonymous');
           }
+          window.location.href = '/login';
         }
+        return;
       }
       
       if (authModalOverlay) authModalOverlay.style.display = 'flex';
@@ -498,11 +521,11 @@ document.addEventListener('DOMContentLoaded', () => {
       if (user) {
         handleAuthSessionBridge(user);
       } else {
-        if (window.appState.activeAnalysis) {
-          sessionStorage.setItem('pendingReportAction', 'true');
-          sessionStorage.setItem('pendingGuestReport', JSON.stringify(window.appState.activeAnalysis));
+        const pendingId = sessionStorage.getItem('pendingAnalysisId');
+        if (pendingId) {
+          sessionStorage.setItem('pendingAnalysisSource', 'anonymous');
         }
-        if (authModalOverlay) authModalOverlay.style.display = 'flex';
+        window.location.href = '/login';
       }
     });
   }

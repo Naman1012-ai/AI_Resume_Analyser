@@ -157,6 +157,14 @@
           </svg>
           Report Audit Logs
         </a>
+        <a class="admin-menu-link" data-tab="user-issue-reports">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+            <line x1="12" y1="9" x2="12" y2="13"></line>
+            <line x1="12" y1="17" x2="12.01" y2="17"></line>
+          </svg>
+          User Reports
+        </a>
         <a class="admin-menu-link" data-tab="security-guardrails">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
@@ -541,6 +549,32 @@
           </div>
         </div>
 
+        <!-- Tab: User Issue Reports View -->
+        <section class="admin-view-pane" id="view-user-issue-reports">
+          <div class="panel">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem;">
+              <div>
+                <h3 style="font-size: 1.3rem; font-weight: 700; margin: 0; color: #fff;">User Issue Reports</h3>
+                <p style="color: var(--text-muted); font-size: 0.85rem; margin: 0.25rem 0 0 0;">Track and resolve bug submissions, analysis issues, and user inquiries.</p>
+              </div>
+              
+              <!-- Filters and Controls -->
+              <div style="display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;">
+                <div class="admin-filter-group" style="display: flex; background: rgba(0,0,0,0.25); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 3px; gap: 2px;">
+                  <button class="filter-btn active" data-filter="all" style="padding: 0.45rem 1rem; border: none; background: rgba(255,255,255,0.05); color: var(--text-main); font-size: 0.75rem; font-weight: 700; cursor: pointer; border-radius: var(--radius-sm); transition: all 0.2s;">All</button>
+                  <button class="filter-btn" data-filter="open" style="padding: 0.45rem 1rem; border: none; background: none; color: var(--text-muted); font-size: 0.75rem; font-weight: 700; cursor: pointer; border-radius: var(--radius-sm); transition: all 0.2s;">Open</button>
+                  <button class="filter-btn" data-filter="resolved" style="padding: 0.45rem 1rem; border: none; background: none; color: var(--text-muted); font-size: 0.75rem; font-weight: 700; cursor: pointer; border-radius: var(--radius-sm); transition: all 0.2s;">Resolved</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Issue cards list -->
+            <div id="issue-reports-list" style="display: flex; flex-direction: column; gap: 1.25rem; margin-top: 1.5rem;">
+              <div style="text-align: center; padding: 3rem; color: var(--text-muted);">Loading user reports...</div>
+            </div>
+          </div>
+        </section>
+
         <!-- Tab 4: Security Guardrails View -->
         <section class="admin-view-pane" id="view-security-guardrails">
           <div class="dashboard-stats-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: var(--spacing-24);">
@@ -729,6 +763,8 @@
             loadGuardrailsConfig();
           } else if (targetTab === 'platform-operations') {
             if (auth.currentUser) loadTelemetryData(auth.currentUser);
+          } else if (targetTab === 'user-issue-reports') {
+            loadUserIssueReports();
           }
 
           // Update Top Control Navbar Title
@@ -784,7 +820,7 @@
       async function loadReportAuditLogs() {
         try {
           const idToken = isMockMode ? 'mock-token' : await auth.currentUser.getIdToken();
-          const res = await fetch('/api/admin/reports', {
+          const res = await fetch('/api/admin/scan-reports', {
             headers: { 'Authorization': `Bearer ${idToken}` }
           });
           const data = await res.json();
@@ -886,7 +922,7 @@
 
         try {
           const idToken = isMockMode ? 'mock-token' : await auth.currentUser.getIdToken();
-          const res = await fetch(`/api/admin/reports/${id}`, {
+          const res = await fetch(`/api/admin/scan-reports/${id}`, {
             headers: { 'Authorization': `Bearer ${idToken}` }
           });
           const data = await res.json();
@@ -1040,8 +1076,7 @@
         });
       };
 
-      // Load report audit logs on init
-      loadReportAuditLogs();
+      // Load report audit logs on init (deferred until auth state resolved)
 
       // 5. User Directory Controller — fetch, render, search, manage access
       let userDirectoryData = []; // cache for filtering
@@ -1078,6 +1113,11 @@
       function escapeHTMLDir(str) {
         if (!str) return '';
         return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+      }
+
+      function escapeHTML(str) {
+        if (!str) return '';
+        return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
       }
 
       function getInitials(name) {
@@ -1328,8 +1368,7 @@
         });
       }
 
-      // Load user directory on init
-      loadUserDirectory();
+      // Load user directory on init (deferred until auth state resolved)
 
       // 6. Interactive Live Engine Simulation Sandbox Logic
       const uploadsSlider = document.getElementById('sim-active-uploads');
@@ -1511,8 +1550,187 @@
         }
       }
 
-      // Load active config on load
-      loadGuardrailsConfig();
+      // User Issue Reports Controller
+      let issueReportsData = [];
+      let activeIssueFilter = 'all';
+
+      async function loadUserIssueReports() {
+        const listDiv = document.getElementById('issue-reports-list');
+        if (listDiv) {
+          listDiv.innerHTML = '<div style="text-align: center; padding: 3rem; color: var(--text-muted);">Loading user reports...</div>';
+        }
+
+        try {
+          const idToken = isMockMode ? 'mock-token' : await auth.currentUser.getIdToken();
+          const res = await fetch('/api/admin/reports', {
+            headers: { 'Authorization': `Bearer ${idToken}` }
+          });
+          const data = await res.json();
+          if (res.ok && data.success) {
+            issueReportsData = data.reports || [];
+            renderIssueReports();
+          } else {
+            console.error('Failed to load user reports:', data.message);
+            renderIssueReportsFallback();
+          }
+        } catch (err) {
+          console.error('User reports fetch error:', err);
+          renderIssueReportsFallback();
+        }
+      }
+
+      function renderIssueReportsFallback() {
+        const listDiv = document.getElementById('issue-reports-list');
+        if (!listDiv) return;
+        listDiv.innerHTML = '<div style="text-align: center; padding: 3rem; color: var(--rose); font-weight: 600;">Unable to load reports right now. Try refreshing the page.</div>';
+      }
+
+      function renderIssueReports() {
+        const listDiv = document.getElementById('issue-reports-list');
+        if (!listDiv) return;
+
+        // Filter data client-side
+        const filtered = issueReportsData.filter(r => {
+          if (activeIssueFilter === 'open') return r.status === 'open';
+          if (activeIssueFilter === 'resolved') return r.status === 'resolved';
+          return true;
+        });
+
+        if (filtered.length === 0) {
+          listDiv.innerHTML = `<div style="text-align: center; padding: 3rem; color: var(--text-muted); background: rgba(0,0,0,0.1); border: 1px dashed var(--border-color); border-radius: var(--radius-md);">No ${activeIssueFilter !== 'all' ? activeIssueFilter + ' ' : ''}reports found.</div>`;
+          return;
+        }
+
+        listDiv.innerHTML = '';
+        filtered.forEach(report => {
+          const card = document.createElement('div');
+          card.className = 'admin-card-glass';
+          card.style.cssText = 'padding: 1.5rem; display: flex; flex-direction: column; gap: 1rem; border-radius: var(--radius-lg);';
+          
+          // Prettify timestamp
+          let timeStr = 'N/A';
+          if (report.createdAt) {
+            const date = new Date(report.createdAt);
+            const now = Date.now();
+            const diffMin = Math.round((now - report.createdAt) / (60 * 1000));
+            if (diffMin < 1) timeStr = 'just now';
+            else if (diffMin < 60) timeStr = `${diffMin} minute${diffMin !== 1 ? 's' : ''} ago`;
+            else {
+              const diffHr = Math.round(diffMin / 60);
+              if (diffHr < 24) timeStr = `${diffHr} hour${diffHr !== 1 ? 's' : ''} ago`;
+              else {
+                timeStr = date.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' }) + ' at ' + date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+              }
+            }
+          }
+
+          // Prettify type badge style
+          let typeColor = 'var(--text-muted)';
+          if (report.issueType === 'Bug') typeColor = '#f43f5e';
+          else if (report.issueType === 'Wrong Analysis') typeColor = '#f59e0b';
+          else if (report.issueType === 'UI Problem') typeColor = '#3b82f6';
+          else if (report.issueType === 'Account Issue') typeColor = '#10b981';
+
+          // Status badge
+          const statusBadge = report.status === 'open' 
+            ? `<span style="padding: 0.25rem 0.5rem; background: rgba(16, 185, 129, 0.1); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.2); border-radius: var(--radius-sm); font-size: 0.75rem; font-weight: 700; text-transform: uppercase;">Open</span>`
+            : `<span style="padding: 0.25rem 0.5rem; background: rgba(255,255,255,0.03); color: var(--text-muted); border: 1px solid var(--border-color); border-radius: var(--radius-sm); font-size: 0.75rem; font-weight: 700; text-transform: uppercase;">Resolved</span>`;
+
+          const resolveBtn = report.status === 'open'
+            ? `<button class="btn-resolve-report btn-cta-secondary" data-id="${report.reportId}" style="padding: 0.5rem 1rem; border-radius: var(--radius-md); font-size: 0.8rem; font-weight: 700; cursor: pointer; transition: all 0.2s;">Mark Resolved</button>`
+            : '';
+
+          card.innerHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 0.5rem;">
+              <div>
+                <h4 style="margin: 0; font-size: 1.05rem; font-weight: 700; color: #fff;">${escapeHTML(report.userName || 'Anonymous')}</h4>
+                <p style="margin: 0.15rem 0 0 0; font-size: 0.8rem; color: var(--text-muted);">${escapeHTML(report.userEmail)} • <span style="font-family: monospace; font-size: 0.75rem;">${report.uid}</span></p>
+              </div>
+              <div style="display: flex; align-items: center; gap: 0.5rem;">
+                <span style="padding: 0.25rem 0.5rem; background: ${typeColor}15; color: ${typeColor}; border: 1px solid ${typeColor}25; border-radius: var(--radius-sm); font-size: 0.75rem; font-weight: 700; text-transform: uppercase;">${escapeHTML(report.issueType)}</span>
+                ${statusBadge}
+              </div>
+            </div>
+            
+            <p style="margin: 0; font-size: 0.9rem; line-height: 1.5; color: var(--text-main); white-space: pre-wrap; background: rgba(0,0,0,0.15); padding: 1rem; border: 1px solid var(--border-color); border-radius: var(--radius-md);">${escapeHTML(report.issueDescription)}</p>
+            
+            <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border-color); padding-top: 0.75rem; margin-top: 0.25rem;">
+              <span style="font-size: 0.75rem; color: var(--text-muted);">Submitted ${timeStr}</span>
+              ${resolveBtn}
+            </div>
+          `;
+          
+          listDiv.appendChild(card);
+        });
+
+        // Attach event listeners to Mark Resolved buttons
+        document.querySelectorAll('.btn-resolve-report').forEach(btn => {
+          btn.addEventListener('click', async (e) => {
+            const reportId = btn.getAttribute('data-id');
+            await resolveIssueReport(reportId, btn);
+          });
+        });
+      }
+
+      async function resolveIssueReport(reportId, buttonEl) {
+        if (!reportId) return;
+        buttonEl.disabled = true;
+        buttonEl.textContent = 'Resolving...';
+
+        try {
+          const idToken = isMockMode ? 'mock-token' : await auth.currentUser.getIdToken();
+          const res = await fetch(`/api/admin/reports/${reportId}/resolve`, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${idToken}`
+            }
+          });
+          const data = await res.json();
+          if (res.ok && data.success) {
+            // Find and update in cache list
+            const foundIdx = issueReportsData.findIndex(r => r.reportId === reportId);
+            if (foundIdx !== -1) {
+              issueReportsData[foundIdx].status = 'resolved';
+            }
+            renderIssueReports();
+          } else {
+            console.error('Failed to resolve report:', data.message);
+            buttonEl.disabled = false;
+            buttonEl.textContent = 'Mark Resolved';
+          }
+        } catch (err) {
+          console.error('Resolve error:', err);
+          buttonEl.disabled = false;
+          buttonEl.textContent = 'Mark Resolved';
+        }
+      }
+
+      // Attach filter buttons click event
+      document.querySelectorAll('.filter-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          document.querySelectorAll('.filter-btn').forEach(b => {
+            b.classList.remove('active');
+            b.style.color = 'var(--text-muted)';
+            b.style.background = 'none';
+          });
+          btn.classList.add('active');
+          btn.style.color = 'var(--text-main)';
+          btn.style.background = 'rgba(255,255,255,0.05)';
+          
+          activeIssueFilter = btn.getAttribute('data-filter');
+          renderIssueReports();
+        });
+      });
+
+      // Defer loading active config and initial dashboard data until auth state resolved
+      auth.onAuthStateChanged((user) => {
+        if (user || isMockMode) {
+          loadReportAuditLogs();
+          loadUserDirectory();
+          loadGuardrailsConfig();
+        }
+      });
     });
   </script>
 </body>

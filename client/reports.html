@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <script>
+    // Synchronously block rendering to prevent layout flash before auth state resolves
+    document.documentElement.style.visibility = 'hidden';
+    (function() {
+      const savedTheme = localStorage.getItem('theme') || 'dark';
+      if (savedTheme === 'light') {
+        document.documentElement.classList.add('light-theme');
+      } else {
+        document.documentElement.classList.remove('light-theme');
+      }
+    })();
+  </script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>My Reports - Resumetrices</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <!-- Injected Header placeholder -->
+  <div id="app-header-placeholder"></div>
+
+  <!-- Scalable Routed Layout -->
+  <div class="dashboard-layout">
+    <!-- Injected Sidebar placeholder -->
+    <div id="app-sidebar-placeholder"></div>
+
+    <main class="main-page-container">
+      <div id="page-reports" class="page-view">
+        <div class="page-header-row" style="margin-bottom: var(--spacing-24);">
+          <h2>My Issue Reports</h2>
+          <p class="page-subtitle">Track the resolution status of bugs and inquiries you have reported.</p>
+        </div>
+        
+        <!-- Reports Catalog Wrapper -->
+        <div class="reports-catalog-wrapper" style="margin-top: 1.5rem;">
+          <!-- Loading skeleton -->
+          <div id="reports-loader" style="display: flex; flex-direction: column; gap: 1rem;">
+            <div class="animate-pulse" style="height: 120px; background: var(--bg-card); border-radius: var(--radius-lg); border: 1px solid var(--border-color);"></div>
+            <div class="animate-pulse" style="height: 120px; background: var(--bg-card); border-radius: var(--radius-lg); border: 1px solid var(--border-color);"></div>
+          </div>
+
+          <!-- Empty state -->
+          <div id="reports-empty-state" style="display: none; text-align: center; padding: 4rem 2rem; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-xl); box-shadow: var(--shadow-card);">
+            <div style="font-size: 3rem; margin-bottom: 1rem;">🚩</div>
+            <h3 style="margin-bottom: 0.5rem; color: var(--text-main);">No reports filed</h3>
+            <p style="color: var(--text-muted); max-width: 400px; margin: 0 auto 1.5rem;">If you run into any system bugs or incorrect analysis results, use the "Report Issue" button on your main dashboard.</p>
+            <a href="dashboard.html" class="btn-primary" style="display: inline-flex; align-items: center; width: auto; padding: 0.6rem 1.5rem;">
+              Back to Dashboard
+            </a>
+          </div>
+
+          <!-- Dynamic Grid / list of Cards -->
+          <div id="reports-cards-list" style="display: none; flex-direction: column; gap: 1.25rem;">
+            <!-- Rendered by client script -->
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script type="module" src="js/firebase-config.js"></script>
+  <script type="module" src="js/auth-guard.js"></script>
+  <script type="module" src="js/navigation.js"></script>
+  <script type="module" src="js/reports.js"></script>
+</body>
+</html>

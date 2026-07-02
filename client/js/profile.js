@@ -55,7 +55,6 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!user && !isMockMode) return;
 
     let cachedRoleTitle = 'Software Engineer';
-    let cachedAvatarUrl = '';
     let cachedDisplayName = '';
     
     if (user) {
@@ -70,7 +69,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (cached) {
           const parsed = JSON.parse(cached);
           if (parsed.roleTitle) cachedRoleTitle = parsed.roleTitle;
-          if (parsed.avatarUrl) cachedAvatarUrl = parsed.avatarUrl;
           if (parsed.displayName) cachedDisplayName = parsed.displayName;
         }
       } catch (e) {
@@ -85,7 +83,6 @@ document.addEventListener('DOMContentLoaded', () => {
       ? new Date(user.metadata.creationTime).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' }) 
       : 'June 25, 2026';
     let roleTitle = cachedRoleTitle;
-    let avatarUrl = cachedAvatarUrl || (user && user.photoURL ? user.photoURL : '');
 
     // Optimistically Render all profile fields immediately (Zero-Lag UI)
     if (profileDisplayName) profileDisplayName.textContent = displayName;
@@ -93,7 +90,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (profileEmail) profileEmail.textContent = email;
     if (profileCreatedDate) profileCreatedDate.textContent = creationTime;
     if (profileProvider) profileProvider.textContent = provider;
-    updateAvatarUI(displayName, avatarUrl);
+    updateAvatarUI(displayName);
 
     // Call loadAnalysisHistory immediately after optimistic render so table content loads without lag
     loadAnalysisHistory();
@@ -123,7 +120,9 @@ document.addEventListener('DOMContentLoaded', () => {
           
           // Write to local cache on change
           if (needsUpdate) {
-            const cacheObj = { displayName, roleTitle, avatarUrl };
+            const fallbackChar = user?.email?.charAt(0) || 'U';
+            const calculatedAvatarUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName || fallbackChar)}&background=10b981&color=ffffff&size=128&bold=true`;
+            const cacheObj = { displayName, roleTitle, avatarUrl: calculatedAvatarUrl };
             sessionStorage.setItem('profile_cache', JSON.stringify(cacheObj));
             localStorage.setItem('profile_cache', JSON.stringify(cacheObj));
             sessionStorage.setItem(`profile_cache_${user.uid}`, JSON.stringify(cacheObj));
@@ -137,33 +136,26 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // Helper: Update Avatar Image/Placeholder
-  function updateAvatarUI(displayName, avatarUrl) {
-    if (avatarUrl) {
-      if (profileAvatarImage) {
-        profileAvatarImage.src = avatarUrl;
-        profileAvatarImage.style.display = 'block';
-      }
-      if (profileAvatarPlaceholder) {
-        profileAvatarPlaceholder.style.display = 'none';
-      }
-    } else {
-      if (profileAvatarImage) {
-        profileAvatarImage.style.display = 'none';
-        profileAvatarImage.src = '';
-      }
-      if (profileAvatarPlaceholder) {
-        profileAvatarPlaceholder.textContent = displayName.charAt(0).toUpperCase();
-        profileAvatarPlaceholder.style.display = 'flex';
-      }
+  function updateAvatarUI(displayName) {
+    const user = auth.currentUser;
+    const fallbackChar = user?.email?.charAt(0) || 'U';
+    const nameParam = displayName || fallbackChar;
+    const calculatedAvatarUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(nameParam)}&background=10b981&color=ffffff&size=128&bold=true`;
+
+    if (profileAvatarImage) {
+      profileAvatarImage.src = calculatedAvatarUrl;
+      profileAvatarImage.style.display = 'block';
+    }
+    if (profileAvatarPlaceholder) {
+      profileAvatarPlaceholder.style.display = 'none';
     }
   }
 
-  // Reactive state synchronization and re-rendering
   window.addEventListener('profile-updated', (e) => {
-    const { displayName, roleTitle, avatarUrl } = e.detail;
+    const { displayName, roleTitle } = e.detail;
     if (profileDisplayName) profileDisplayName.textContent = displayName;
     if (profileRoleTitle) profileRoleTitle.textContent = roleTitle;
-    updateAvatarUI(displayName, avatarUrl);
+    updateAvatarUI(displayName);
   });
 
   window.addEventListener('storage', (e) => {

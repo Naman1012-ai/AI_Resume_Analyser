@@ -70,8 +70,8 @@ router.put('/users/:userId/quota', requireAdmin, rateLimiter('general'), async (
   }
 });
 
-// GET /api/admin/reports - Retrieve all processing runs/reports across the platform
-router.get('/reports', requireAdmin, rateLimiter('general'), async (req, res, next) => {
+// GET /api/admin/scan-reports - Retrieve all processing runs/reports across the platform
+router.get('/scan-reports', requireAdmin, rateLimiter('general'), async (req, res, next) => {
   try {
     const reports = await firebaseService.getAdminReports();
     res.status(200).json({
@@ -83,8 +83,8 @@ router.get('/reports', requireAdmin, rateLimiter('general'), async (req, res, ne
   }
 });
 
-// GET /api/admin/reports/:id - Retrieve full details of a specific report
-router.get('/reports/:id', requireAdmin, rateLimiter('general'), async (req, res, next) => {
+// GET /api/admin/scan-reports/:id - Retrieve full details of a specific report
+router.get('/scan-reports/:id', requireAdmin, rateLimiter('general'), async (req, res, next) => {
   try {
     const { id } = req.params;
     const report = await firebaseService.getAdminReportDetails(id);
@@ -97,6 +97,33 @@ router.get('/reports/:id', requireAdmin, rateLimiter('general'), async (req, res
     res.status(200).json({
       success: true,
       report: report
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// GET /api/admin/reports - Retrieve all user issue reports sorted by date
+router.get('/reports', requireAdmin, rateLimiter('general'), async (req, res, next) => {
+  try {
+    const reports = await firebaseService.getUserIssueReports();
+    res.status(200).json({
+      success: true,
+      reports: reports
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// PUT /api/admin/reports/:id/resolve - Mark a user issue report as resolved
+router.put('/reports/:id/resolve', requireAdmin, rateLimiter('general'), async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    await firebaseService.resolveUserIssueReport(id);
+    res.status(200).json({
+      success: true,
+      message: 'Issue report marked as resolved.'
     });
   } catch (error) {
     next(error);

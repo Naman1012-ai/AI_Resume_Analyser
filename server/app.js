@@ -117,6 +117,18 @@ app.use('/api/*', (req, res, next) => {
   next(error);
 });
 
+app.get('/login', (req, res) => {
+  res.sendFile(path.join(__dirname, '../client/login.html'));
+});
+
+app.get('/signup', (req, res) => {
+  res.sendFile(path.join(__dirname, '../client/signup.html'));
+});
+
+app.get('/dashboard', (req, res) => {
+  res.sendFile(path.join(__dirname, '../client/dashboard.html'));
+});
+
 // Fallback route: Serve index.html for any frontend SPA routing (wildcard catch-all)
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, '../client/index.html'));

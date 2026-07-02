@@ -243,10 +243,203 @@ async function loadDashboardData() {
   }
 }
 
+function showRecoveryFailureBanner() {
+  const container = document.getElementById('recovery-banner-container');
+  if (!container) return;
+  
+  container.innerHTML = `
+    <div class="recovery-banner" style="display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 1rem 1.25rem; background: rgba(244, 63, 94, 0.08); border: 1px solid rgba(244, 63, 94, 0.2); border-radius: var(--radius-lg, 12px); margin-top: 1.5rem; margin-bottom: 0.5rem; transition: all 0.3s ease;">
+      <div style="display: flex; align-items: center; gap: 0.75rem;">
+        <span style="font-size: 1.25rem;">⚠️</span>
+        <span style="font-size: 0.9rem; font-weight: 600; color: var(--text-main); line-height: 1.5;">
+          We couldn't recover your previous analysis. Please re-upload your resume to run a new scan.
+        </span>
+      </div>
+      <button onclick="this.parentElement.style.display='none'" style="background: none; border: none; color: var(--text-muted); font-size: 1.2rem; cursor: pointer; padding: 0.25rem; display: flex; align-items: center; justify-content: center; transition: color 0.2s;" onmouseover="this.style.color='var(--text-main)'" onmouseout="this.style.color='var(--text-muted)'">
+        ✕
+      </button>
+    </div>
+  `;
+}
+
 document.addEventListener('DOMContentLoaded', () => {
-  auth.onAuthStateChanged((user) => {
+  auth.onAuthStateChanged(async (user) => {
     if (user || isMockMode) {
+      const urlParams = new URLSearchParams(window.location.search);
+      const isAnonRedirect = urlParams.get('source') === 'anonymous';
+      const pendingAnalysisId = sessionStorage.getItem('pendingAnalysisId');
+
+      if (isAnonRedirect || pendingAnalysisId) {
+        if (pendingAnalysisId && user) {
+          try {
+            const idToken = await user.getIdToken();
+            const response = await fetch(`${FirebaseService.getApiBase()}/analysis/claim`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${idToken}`
+              },
+              body: JSON.stringify({ sessionId: pendingAnalysisId })
+            });
+            const result = await response.json();
+            if (response.ok) {
+              showToast('Previous analysis recovered successfully!', 'success');
+            } else {
+              showRecoveryFailureBanner();
+            }
+          } catch (claimErr) {
+            console.error('Failed to claim anonymous analysis:', claimErr);
+            showRecoveryFailureBanner();
+          } finally {
+            sessionStorage.removeItem('pendingAnalysisId');
+            sessionStorage.removeItem('pendingAnalysisSource');
+          }
+        } else {
+          // sessionStorage is empty or user is null (different device/browser or expired storage)
+          showRecoveryFailureBanner();
+        }
+      }
+
       loadDashboardData();
     }
   });
+
+  // Issue Modal logic
+  const triggerBtn = document.getElementById('btn-trigger-report-issue');
+  const modalOverlay = document.getElementById('issue-modal-overlay');
+  const cancelBtn = document.getElementById('btn-cancel-issue');
+  const closeSuccessBtn = document.getElementById('btn-close-issue-success');
+  const issueForm = document.getElementById('issue-report-form');
+  const issueTypeSelect = document.getElementById('issue-type');
+  const issueDescTextarea = document.getElementById('issue-description');
+  const charCountSpan = document.getElementById('issue-char-count');
+  const submitBtn = document.getElementById('btn-submit-issue');
+  const errorMsgDiv = document.getElementById('issue-error-msg');
+  const formView = document.getElementById('issue-form-view');
+  const successView = document.getElementById('issue-success-view');
+
+  let isSubmitting = false;
+
+  const openModal = () => {
+    if (modalOverlay) modalOverlay.style.display = 'flex';
+    if (issueDescTextarea) {
+      issueDescTextarea.value = '';
+      issueDescTextarea.focus();
+    }
+    if (charCountSpan) charCountSpan.textContent = '0';
+    if (errorMsgDiv) {
+      errorMsgDiv.style.display = 'none';
+      errorMsgDiv.textContent = '';
+    }
+    if (formView) formView.style.display = 'block';
+    if (successView) successView.style.display = 'none';
+    isSubmitting = false;
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Submit Report';
+    }
+    if (cancelBtn) cancelBtn.disabled = false;
+  };
+
+  const closeModal = () => {
+    if (isSubmitting) return; // Cannot close mid-submission
+    if (modalOverlay) modalOverlay.style.display = 'none';
+  };
+
+  if (triggerBtn) {
+    triggerBtn.addEventListener('click', openModal);
+  }
+
+  if (cancelBtn) {
+    cancelBtn.addEventListener('click', closeModal);
+  }
+
+  if (closeSuccessBtn) {
+    closeSuccessBtn.addEventListener('click', () => {
+      if (modalOverlay) modalOverlay.style.display = 'none';
+    });
+  }
+
+  if (issueDescTextarea) {
+    issueDescTextarea.addEventListener('input', () => {
+      const len = issueDescTextarea.value.length;
+      if (charCountSpan) charCountSpan.textContent = len.toString();
+    });
+  }
+
+  // Handle escape key
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && modalOverlay && modalOverlay.style.display === 'flex') {
+      closeModal();
+    }
+  });
+
+  if (issueForm) {
+    issueForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if (isSubmitting) return;
+
+      const issueType = issueTypeSelect ? issueTypeSelect.value : 'Bug';
+      const issueDescription = issueDescTextarea ? issueDescTextarea.value : '';
+
+      if (issueDescription.length < 10 || issueDescription.length > 1000) {
+        if (errorMsgDiv) {
+          errorMsgDiv.textContent = 'Description must be between 10 and 1000 characters.';
+          errorMsgDiv.style.display = 'block';
+        }
+        return;
+      }
+
+      isSubmitting = true;
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Sending...';
+      }
+      if (cancelBtn) cancelBtn.disabled = true;
+      if (errorMsgDiv) {
+        errorMsgDiv.style.display = 'none';
+        errorMsgDiv.textContent = '';
+      }
+
+      try {
+        const idToken = isMockMode ? 'mock-token' : await auth.currentUser.getIdToken();
+        const response = await fetch(`${FirebaseService.getApiBase()}/report-issue`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${idToken}`
+          },
+          body: JSON.stringify({ issueType, issueDescription })
+        });
+
+        const result = await response.json();
+        if (response.ok && result.success) {
+          if (formView) formView.style.display = 'none';
+          if (successView) successView.style.display = 'block';
+        } else {
+          let errorText = 'Something went wrong. Please try again.';
+          if (response.status === 429) {
+            errorText = "You've already submitted a report recently. Please try again later.";
+          }
+          if (errorMsgDiv) {
+            errorMsgDiv.textContent = errorText;
+            errorMsgDiv.style.display = 'block';
+          }
+        }
+      } catch (err) {
+        console.error('Issue report error:', err);
+        if (errorMsgDiv) {
+          errorMsgDiv.textContent = 'Something went wrong. Please try again.';
+          errorMsgDiv.style.display = 'block';
+        }
+      } finally {
+        isSubmitting = false;
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.textContent = 'Submit Report';
+        }
+        if (cancelBtn) cancelBtn.disabled = false;
+      }
+    });
+  }
 });

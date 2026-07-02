@@ -8,6 +8,7 @@ const fs = require('fs');
 const firebaseService = require('../services/firebaseService');
 const resumeService = require('../services/resumeService');
 const logger = require('../utils/logger');
+const crypto = require('crypto');
 
 /**
  * @route POST /api/analyze (and /api/upload)
@@ -552,7 +553,7 @@ exports.updateUserProfile = async (req, res, next) => {
       return next(error);
     }
 
-    const { displayName, targetDomain, avatarUrl } = req.body;
+    const { displayName, targetDomain } = req.body;
 
     logger.info('UpdateUserProfile', `Request body received for User ID ${userId}:`, req.body);
 
@@ -569,15 +570,235 @@ exports.updateUserProfile = async (req, res, next) => {
       await firebaseService.updateUserProfile(userId, profileUpdate);
     }
 
-    // Return the updated data (including avatarUrl which is not saved in DB, but returned to client)
+    // Return the updated data
     return res.status(200).json({
       success: true,
       message: 'Profile updated successfully.',
       displayName: profileUpdate.displayName,
-      targetDomain: profileUpdate.targetDomain,
-      avatarUrl: avatarUrl ? avatarUrl.trim() : undefined
+      targetDomain: profileUpdate.targetDomain
     });
   } catch (error) {
     next(error);
+  }
+};
+
+/**
+ * @route POST /api/analysis/store-anonymous
+ * @description Store anonymous analysis temporarily
+ */
+exports.storeAnonymousAnalysis = async (req, res, next) => {
+  try {
+    const { sessionId, analysisData } = req.body;
+    if (!sessionId || !analysisData) {
+      const error = new Error('sessionId and analysisData are required.');
+      error.statusCode = 400;
+      error.code = 'BAD_REQUEST';
+      return next(error);
+    }
+
+    logger.info('StoreAnonymous', `📥 Request to store anonymous analysis for sessionId: ${sessionId}`);
+
+    // Trigger cleanup job for expired entries on each call to prevent orphan data accumulating
+    try {
+      await firebaseService.cleanupExpiredAnonymousAnalyses();
+    } catch (cleanupErr) {
+      logger.error('StoreAnonymous', `Expired cleanup failure: ${cleanupErr.message}`);
+    }
+
+    await firebaseService.storeAnonymousAnalysis(sessionId, analysisData);
+
+    return res.status(200).json({
+      success: true,
+      message: 'Anonymous analysis stored successfully.'
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * @route POST /api/analysis/claim
+ * @description Claim/migrate an anonymous analysis to the authenticated user's account
+ */
+exports.claimAnalysis = async (req, res, next) => {
+  try {
+    const userId = req.user ? req.user.uid : 'anonymous';
+    if (userId === 'anonymous') {
+      const error = new Error('Access denied. Authentication required.');
+      error.statusCode = 401;
+      error.code = 'UNAUTHORIZED';
+      return next(error);
+    }
+
+    const { sessionId } = req.body;
+    if (!sessionId) {
+      const error = new Error('sessionId is required.');
+      error.statusCode = 400;
+      error.code = 'BAD_REQUEST';
+      return next(error);
+    }
+
+    logger.info('ClaimAnalysis', `🔑 User ${userId} is claiming anonymous analysis with sessionId: ${sessionId}`);
+
+    // Fetch the anonymous analysis
+    const anonRecord = await firebaseService.getAnonymousAnalysis(sessionId);
+    if (!anonRecord) {
+      logger.warn('ClaimAnalysis', `Anonymous session ${sessionId} not found or expired.`);
+      const error = new Error('The previous analysis could not be found or has expired.');
+      error.statusCode = 404;
+      error.code = 'NOT_FOUND';
+      return next(error);
+    }
+
+    // Verify it exists and has not expired (expiresAt check)
+    const now = new Date().toISOString();
+    if (anonRecord.expiresAt && anonRecord.expiresAt < now) {
+      logger.warn('ClaimAnalysis', `Anonymous session ${sessionId} has expired. Expiry time: ${anonRecord.expiresAt}`);
+      const error = new Error('The previous analysis has expired.');
+      error.statusCode = 404;
+      error.code = 'EXPIRED';
+      return next(error);
+    }
+
+    // Write the full analysis to the user's analyses collection
+    const newAnalysisId = `analysis_${crypto.randomUUID()}`;
+    const rawAnalysisData = anonRecord.analysisData;
+    
+    // Set user ownership on payload
+    rawAnalysisData.userId = userId;
+    rawAnalysisData.analysisId = newAnalysisId;
+    if (rawAnalysisData.createdAt) {
+      rawAnalysisData.createdAt = new Date().toISOString();
+    }
+
+    await firebaseService.saveAnalysis(newAnalysisId, rawAnalysisData);
+
+    // Delete the anonymous temp entry
+    await firebaseService.deleteAnonymousAnalysis(sessionId);
+
+    logger.info('ClaimAnalysis', `✅ Claim successful. Session ${sessionId} migrated to analysis record ${newAnalysisId} for User ${userId}.`);
+
+    return res.status(200).json({
+      success: true,
+      message: 'Analysis claimed successfully.',
+      analysisId: newAnalysisId
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * @route POST /api/report-issue
+ * @description Report an issue with validation and 5-minute rate limiting
+ */
+exports.reportIssue = async (req, res, next) => {
+  try {
+    const uid = req.user ? req.user.uid : '';
+    const email = req.user ? req.user.email : '';
+
+    if (!uid || !email) {
+      const error = new Error('Access denied. Authentication required.');
+      error.statusCode = 401;
+      error.code = 'UNAUTHORIZED';
+      return next(error);
+    }
+
+    const { issueType, issueDescription } = req.body;
+
+    // Validate inputs
+    const allowedCategories = ['Bug', 'Wrong Analysis', 'UI Problem', 'Account Issue', 'Other'];
+    if (!issueType || !allowedCategories.includes(issueType)) {
+      const error = new Error('Invalid issue type.');
+      error.statusCode = 400;
+      error.code = 'BAD_REQUEST';
+      return next(error);
+    }
+
+    if (!issueDescription || typeof issueDescription !== 'string' || issueDescription.length < 10 || issueDescription.length > 1000) {
+      const error = new Error('Description must be between 10 and 1000 characters.');
+      error.statusCode = 400;
+      error.code = 'BAD_REQUEST';
+      return next(error);
+    }
+
+    // Rate Limit: 5 minutes check
+    const lastReportTime = await firebaseService.getUserLastIssueReportTimestamp(uid);
+    const now = Date.now();
+    const fiveMinutes = 5 * 60 * 1000;
+    if (now - lastReportTime < fiveMinutes) {
+      const error = new Error('Rate limit exceeded. Please wait 5 minutes between reports.');
+      error.statusCode = 429;
+      error.code = 'TOO_MANY_REQUESTS';
+      return next(error);
+    }
+
+    // Read displayName
+    const userName = await firebaseService.getUserDisplayName(uid);
+
+    // Save report
+    const reportId = `report_${crypto.randomUUID()}`;
+    const reportData = {
+      uid,
+      userName: userName || email.split('@')[0],
+      userEmail: email,
+      issueType,
+      issueDescription: issueDescription.trim(),
+      status: 'open',
+      createdAt: now
+    };
+
+    try {
+      await firebaseService.storeUserIssueReport(reportId, reportData);
+      await firebaseService.updateUserLastIssueReportTimestamp(uid, now);
+      
+      return res.status(200).json({
+        success: true,
+        message: 'Report submitted successfully.'
+      });
+    } catch (writeErr) {
+      logger.error('ReportIssue', `Database write failed: ${writeErr.message}`);
+      return res.status(500).json({
+        success: false,
+        message: 'Something went wrong. Please try again.'
+      });
+    }
+  } catch (error) {
+    // Never leak stack trace or internal error messages to client
+    logger.error('ReportIssue', `Server error: ${error.message}`);
+    return res.status(error.statusCode || 500).json({
+      success: false,
+      message: error.statusCode === 429 
+        ? "You've already submitted a report recently. Please try again later."
+        : (error.statusCode === 400 ? error.message : 'Something went wrong. Please try again.')
+    });
+  }
+};
+
+/**
+ * @route GET /api/reports
+ * @description Retrieve all issue reports created by the authenticated user
+ */
+exports.getUserReports = async (req, res, next) => {
+  try {
+    const uid = req.user ? req.user.uid : '';
+    if (!uid) {
+      const error = new Error('Access denied. Authentication required.');
+      error.statusCode = 401;
+      error.code = 'UNAUTHORIZED';
+      return next(error);
+    }
+
+    const reports = await firebaseService.getUserIssueReportsByUid(uid);
+    return res.status(200).json({
+      success: true,
+      reports: reports
+    });
+  } catch (error) {
+    logger.error('GetUserReports', `Failed to fetch user reports: ${error.message}`);
+    return res.status(500).json({
+      success: false,
+      message: 'Something went wrong. Please try again.'
+    });
   }
 };

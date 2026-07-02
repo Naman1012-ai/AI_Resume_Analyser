@@ -1531,6 +1531,126 @@ const updateUserProfile = async (userId, profileUpdate) => {
   }
 };
 
+const mockAnonymousStore = new Map();
+
+/**
+ * Stores an anonymous analysis record temporarily in Firebase or memory.
+ */
+const storeAnonymousAnalysis = async (sessionId, analysisData) => {
+  const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+  const createdAt = new Date().toISOString();
+
+  if (!hasCredentials) {
+    logger.warn('Firebase', `⚠️ Running in fallback mode. Storing anonymous analysis ${sessionId} in local in-memory store.`);
+    mockAnonymousStore.set(sessionId, {
+      analysisData,
+      createdAt,
+      expiresAt
+    });
+    return true;
+  }
+
+  try {
+    const db = getDatabase();
+    await db.ref(`anonymous/${sessionId}`).set({
+      analysisData,
+      createdAt,
+      expiresAt
+    });
+    logger.info('Firebase', `✅ Anonymous analysis ${sessionId} saved successfully.`);
+    return true;
+  } catch (error) {
+    logger.error('Firebase', `Failed to store anonymous analysis ${sessionId}: ${error.message}`);
+    throw new Error(`Failed to store anonymous analysis: ${error.message}`);
+  }
+};
+
+/**
+ * Fetches an anonymous analysis by sessionId.
+ */
+const getAnonymousAnalysis = async (sessionId) => {
+  if (!hasCredentials) {
+    logger.warn('Firebase', `⚠️ Running in fallback mode. Fetching anonymous analysis ${sessionId} from local in-memory store.`);
+    return mockAnonymousStore.get(sessionId) || null;
+  }
+
+  try {
+    const db = getDatabase();
+    const snapshot = await db.ref(`anonymous/${sessionId}`).once('value');
+    return snapshot.val() || null;
+  } catch (error) {
+    logger.error('Firebase', `Failed to get anonymous analysis ${sessionId}: ${error.message}`);
+    throw new Error(`Failed to retrieve anonymous analysis: ${error.message}`);
+  }
+};
+
+/**
+ * Deletes an anonymous analysis by sessionId.
+ */
+const deleteAnonymousAnalysis = async (sessionId) => {
+  if (!hasCredentials) {
+    logger.warn('Firebase', `⚠️ Running in fallback mode. Deleting anonymous analysis ${sessionId} from local in-memory store.`);
+    mockAnonymousStore.delete(sessionId);
+    return true;
+  }
+
+  try {
+    const db = getDatabase();
+    await db.ref(`anonymous/${sessionId}`).remove();
+    logger.info('Firebase', `🗑️ Anonymous analysis ${sessionId} successfully deleted.`);
+    return true;
+  } catch (error) {
+    logger.error('Firebase', `Failed to delete anonymous analysis ${sessionId}: ${error.message}`);
+    throw new Error(`Failed to delete anonymous analysis: ${error.message}`);
+  }
+};
+
+/**
+ * Cleanup job that runs to delete any expired anonymous analyses.
+ */
+const cleanupExpiredAnonymousAnalyses = async () => {
+  const now = new Date().toISOString();
+
+  if (!hasCredentials) {
+    logger.warn('Firebase', `⚠️ Running in fallback mode. Running anonymous analyses cleanup in local in-memory store.`);
+    let deletedCount = 0;
+    for (const [sid, data] of mockAnonymousStore.entries()) {
+      if (data.expiresAt && data.expiresAt < now) {
+        mockAnonymousStore.delete(sid);
+        deletedCount++;
+      }
+    }
+    if (deletedCount > 0) {
+      logger.info('Firebase', `🧹 Local cleanup: Deleted ${deletedCount} expired anonymous analyses.`);
+    }
+    return true;
+  }
+
+  try {
+    const db = getDatabase();
+    const snapshot = await db.ref('anonymous').once('value');
+    if (snapshot.exists()) {
+      const anonData = snapshot.val();
+      const updates = {};
+      let expiredCount = 0;
+      for (const [sid, data] of Object.entries(anonData)) {
+        if (data.expiresAt && data.expiresAt < now) {
+          updates[sid] = null;
+          expiredCount++;
+        }
+      }
+      if (expiredCount > 0) {
+        await db.ref('anonymous').update(updates);
+        logger.info('Firebase', `🧹 Database cleanup: Deleted ${expiredCount} expired anonymous analyses.`);
+      }
+    }
+    return true;
+  } catch (error) {
+    logger.error('Firebase', `Failed to cleanup expired anonymous analyses: ${error.message}`);
+    return false;
+  }
+};
+
 module.exports = {
   saveAnalysis,
   getUserHistory,
@@ -1550,6 +1670,196 @@ module.exports = {
   getGuardrailsConfig,
   updateGuardrailsConfig,
   loadActiveGuardrails,
+  storeAnonymousAnalysis,
+  getAnonymousAnalysis,
+  deleteAnonymousAnalysis,
+  cleanupExpiredAnonymousAnalyses,
+  isInitialized: () => isFirebaseInitialized,
+  hasCredentials: () => hasCredentials
+};
+
+const mockReportsStore = new Map();
+
+/**
+ * Stores a user issue report in Firebase or memory.
+ */
+const storeUserIssueReport = async (reportId, reportData) => {
+  if (!hasCredentials) {
+    logger.warn('Firebase', `⚠️ Running in fallback mode. Saving issue report ${reportId} to in-memory store.`);
+    mockReportsStore.set(reportId, reportData);
+    return true;
+  }
+
+  try {
+    const db = getDatabase();
+    await db.ref(`reports/${reportId}`).set(reportData);
+    logger.info('Firebase', `✅ Issue report ${reportId} successfully written to RTDB.`);
+    return true;
+  } catch (error) {
+    logger.error('Firebase', `Failed to write issue report ${reportId}: ${error.message}`);
+    throw error;
+  }
+};
+
+/**
+ * Fetches all user issue reports.
+ */
+const getUserIssueReports = async () => {
+  if (!hasCredentials) {
+    logger.warn('Firebase', `⚠️ Running in fallback mode. Fetching issue reports from in-memory store.`);
+    return Array.from(mockReportsStore.values()).sort((a, b) => b.createdAt - a.createdAt);
+  }
+
+  try {
+    const db = getDatabase();
+    const snapshot = await db.ref('reports').once('value');
+    if (!snapshot.exists()) {
+      return [];
+    }
+    const data = snapshot.val();
+    return Object.entries(data)
+      .map(([id, val]) => ({ reportId: id, ...val }))
+      .sort((a, b) => b.createdAt - a.createdAt);
+  } catch (error) {
+    logger.error('Firebase', `Failed to fetch issue reports: ${error.message}`);
+    throw error;
+  }
+};
+
+/**
+ * Marks an issue report as resolved.
+ */
+const resolveUserIssueReport = async (reportId) => {
+  if (!hasCredentials) {
+    logger.warn('Firebase', `⚠️ Running in fallback mode. Resolving issue report ${reportId} in-memory.`);
+    const report = mockReportsStore.get(reportId);
+    if (report) {
+      report.status = 'resolved';
+      mockReportsStore.set(reportId, report);
+    }
+    return true;
+  }
+
+  try {
+    const db = getDatabase();
+    await db.ref(`reports/${reportId}`).update({ status: 'resolved' });
+    logger.info('Firebase', `✅ Issue report ${reportId} marked as resolved in RTDB.`);
+    return true;
+  } catch (error) {
+    logger.error('Firebase', `Failed to resolve issue report ${reportId}: ${error.message}`);
+    throw error;
+  }
+};
+
+/**
+ * Reads user last issue report timestamp.
+ */
+const getUserLastIssueReportTimestamp = async (userId) => {
+  if (!hasCredentials) {
+    return 0; // No rate limit in mock mode
+  }
+  try {
+    const db = getDatabase();
+    const snapshot = await db.ref(`users/${userId}/lastIssueReport`).once('value');
+    return snapshot.val() || 0;
+  } catch (error) {
+    logger.error('Firebase', `Failed to get lastIssueReport timestamp: ${error.message}`);
+    return 0;
+  }
+};
+
+/**
+ * Updates user last issue report timestamp.
+ */
+const updateUserLastIssueReportTimestamp = async (userId, timestamp) => {
+  if (!hasCredentials) {
+    return true;
+  }
+  try {
+    const db = getDatabase();
+    await db.ref(`users/${userId}/lastIssueReport`).set(timestamp);
+    return true;
+  } catch (error) {
+    logger.error('Firebase', `Failed to update lastIssueReport timestamp: ${error.message}`);
+    return false;
+  }
+};
+
+/**
+ * Reads user displayName.
+ */
+const getUserDisplayName = async (userId) => {
+  if (!hasCredentials) {
+    return 'John Doe';
+  }
+  try {
+    const db = getDatabase();
+    const snapshot = await db.ref(`users/${userId}/profile/displayName`).once('value');
+    return snapshot.val() || '';
+  } catch (error) {
+    logger.error('Firebase', `Failed to get displayName for user ${userId}: ${error.message}`);
+    return '';
+  }
+};
+
+/**
+ * Fetches user issue reports by UID.
+ */
+const getUserIssueReportsByUid = async (uid) => {
+  if (!hasCredentials) {
+    logger.warn('Firebase', `⚠️ Running in fallback mode. Fetching user issue reports by UID.`);
+    return Array.from(mockReportsStore.values())
+      .filter(r => r.uid === uid)
+      .sort((a, b) => b.createdAt - a.createdAt);
+  }
+
+  try {
+    const db = getDatabase();
+    const snapshot = await db.ref('reports').once('value');
+    if (!snapshot.exists()) {
+      return [];
+    }
+    const data = snapshot.val();
+    return Object.entries(data)
+      .map(([id, val]) => ({ reportId: id, ...val }))
+      .filter(r => r.uid === uid)
+      .sort((a, b) => b.createdAt - a.createdAt);
+  } catch (error) {
+    logger.error('Firebase', `Failed to fetch user issue reports: ${error.message}`);
+    throw error;
+  }
+};
+
+module.exports = {
+  saveAnalysis,
+  getUserHistory,
+  getAnalysisById,
+  getDashboardStats,
+  getPublicStats,
+  deleteAnalysis,
+  renameAnalysis,
+  deleteUserAccount,
+  getUserData,
+  getAdminDashboardStats,
+  getAdminUserList,
+  updateUserQuota,
+  updateUserProfile,
+  getAdminReports,
+  getAdminReportDetails,
+  getGuardrailsConfig,
+  updateGuardrailsConfig,
+  loadActiveGuardrails,
+  storeAnonymousAnalysis,
+  getAnonymousAnalysis,
+  deleteAnonymousAnalysis,
+  cleanupExpiredAnonymousAnalyses,
+  storeUserIssueReport,
+  getUserIssueReports,
+  resolveUserIssueReport,
+  getUserLastIssueReportTimestamp,
+  updateUserLastIssueReportTimestamp,
+  getUserDisplayName,
+  getUserIssueReportsByUid,
   isInitialized: () => isFirebaseInitialized,
   hasCredentials: () => hasCredentials
 };

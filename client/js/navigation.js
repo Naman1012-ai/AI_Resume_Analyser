@@ -113,7 +113,6 @@ document.addEventListener('DOMContentLoaded', () => {
           if (cached) {
             const parsed = JSON.parse(cached);
             if (parsed.displayName) displayName = parsed.displayName;
-            if (parsed.avatarUrl) avatarUrl = parsed.avatarUrl;
           }
         } catch (e) {}
       }
@@ -194,6 +193,14 @@ document.addEventListener('DOMContentLoaded', () => {
             </svg>
             <span class="nav-label">Profile</span>
           </a>
+          <a href="${getLinkUrl('reports.html')}" class="nav-item" id="nav-reports">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+              <line x1="12" y1="9" x2="12" y2="13"></line>
+              <line x1="12" y1="17" x2="12.01" y2="17"></line>
+            </svg>
+            <span class="nav-label">My Reports</span>
+          </a>
           <a href="${getLinkUrl('settings.html')}" class="nav-item" id="nav-settings">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <circle cx="12" cy="12" r="3"></circle>
@@ -228,6 +235,7 @@ document.addEventListener('DOMContentLoaded', () => {
     else if (filename.includes('analysis.html')) activeNavId = 'nav-dashboard'; // Analysis report counts as dashboard context
     else if (filename.includes('interview')) activeNavId = 'nav-interview-prep';
     else if (filename.includes('profile')) activeNavId = 'nav-profile';
+    else if (filename.includes('reports.html')) activeNavId = 'nav-reports';
     else if (filename.includes('settings')) activeNavId = 'nav-settings';
 
     if (activeNavId) {
@@ -448,13 +456,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const avatarDropdownBtn = document.getElementById('avatar-dropdown-btn');
     if (dropdownUsername) dropdownUsername.textContent = displayName;
     if (avatarDropdownBtn) {
-      if (avatarUrl) {
-        avatarDropdownBtn.innerHTML = `<img src="${avatarUrl}" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">`;
-        avatarDropdownBtn.style.padding = '0';
-      } else {
-        avatarDropdownBtn.textContent = displayName.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2) || 'U';
-        avatarDropdownBtn.style.padding = '';
-      }
+      const user = auth.currentUser;
+      const fallbackChar = user?.email?.charAt(0) || 'U';
+      const nameParam = displayName || fallbackChar;
+      const calculatedAvatarUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(nameParam)}&background=10b981&color=ffffff&size=128&bold=true`;
+      
+      avatarDropdownBtn.innerHTML = `<img src="${calculatedAvatarUrl}" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">`;
+      avatarDropdownBtn.style.padding = '0';
     }
   }
 

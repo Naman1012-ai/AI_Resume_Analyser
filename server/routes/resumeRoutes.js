@@ -20,6 +20,18 @@ router.post('/analyze', requireAuth, rateLimiter('upload'), upload.single('resum
 // POST /api/public/analyze - Public endpoint for guest users (bypasses auth checks)
 router.post('/public/analyze', rateLimiter('upload'), upload.single('resume'), resumeController.analyzePublicResume);
 
+// POST /api/analysis/store-anonymous - Store anonymous analysis temporarily
+router.post('/analysis/store-anonymous', rateLimiter('general'), resumeController.storeAnonymousAnalysis);
+
+// POST /api/analysis/claim - Migrate/Claim an anonymous analysis to the authenticated user's account
+router.post('/analysis/claim', requireAuth, rateLimiter('general'), resumeController.claimAnalysis);
+
+// POST /api/report-issue - Handle user issue reporting
+router.post('/report-issue', requireAuth, rateLimiter('general'), resumeController.reportIssue);
+
+// GET /api/reports - Retrieve issue reports created by the authenticated user
+router.get('/reports', requireAuth, rateLimiter('general'), resumeController.getUserReports);
+
 // GET /api/public/stats - Fetch global public database statistics for the landing page
 router.get('/public/stats', rateLimiter('general'), resumeController.getPublicStats);
 

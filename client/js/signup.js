@@ -32,10 +32,13 @@ document.addEventListener('DOMContentLoaded', () => {
       isRedirectProcessing = false;
       if (auth.currentUser) {
         redirectUser();
+      } else {
+        document.documentElement.style.visibility = 'visible';
       }
     }
   }).catch((error) => {
     isRedirectProcessing = false;
+    document.documentElement.style.visibility = 'visible';
     console.error("OAuth Error Context:", error);
     showToast(`Google Sign-In Error: ${error.code} - ${error.message}`, 'error');
   });
@@ -66,26 +69,54 @@ document.addEventListener('DOMContentLoaded', () => {
   function redirectUser() {
     const user = auth.currentUser;
     const adminEmail = window.process?.env?.VITE_ADMIN_EMAIL || 'admin@resumetrices.com';
-    const mockParam = isMockMode ? '?mock=true' : '';
-    const mockQuery = mockParam ? (mockParam.startsWith('?') ? mockParam : '?' + mockParam) : '';
+    
+    const urlParams = new URLSearchParams(window.location.search);
+    const hasSource = urlParams.get('source') === 'anonymous' || sessionStorage.getItem('pendingAnalysisSource') === 'anonymous';
+    
+    let mockParam = isMockMode ? 'mock=true' : '';
+    let sourceParam = hasSource ? 'source=anonymous' : '';
+    
+    let queryParts = [];
+    if (mockParam) queryParts.push(mockParam);
+    if (sourceParam) queryParts.push(sourceParam);
+    
+    const queryStr = queryParts.length > 0 ? '?' + queryParts.join('&') : '';
 
     if (user && user.email === adminEmail) {
-      window.location.href = `/admin/dashboard.html${mockQuery}`;
+      window.location.href = `/admin/dashboard.html${queryStr}`;
       return;
     }
 
     const pendingFile = sessionStorage.getItem('pendingFileBase64');
     if (pendingFile) {
-      window.location.href = `new-analysis.html${mockQuery}`;
+      window.location.href = `new-analysis.html${queryStr}`;
     } else {
-      window.location.href = `/dashboard.html${mockQuery}`;
+      window.location.href = `/dashboard.html${queryStr}`;
+    }
+  }
+
+  // Preserve source query parameter on redirect links
+  const linkLoginRedirect = document.getElementById('link-login-redirect');
+  if (linkLoginRedirect) {
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('source') === 'anonymous') {
+      const mockParam = isMockMode ? 'mock=true' : '';
+      const queryParts = ['source=anonymous'];
+      if (mockParam) queryParts.push(mockParam);
+      linkLoginRedirect.href = `login.html?${queryParts.join('&')}`;
     }
   }
 
   // Already logged in?
   auth.onAuthStateChanged((user) => {
-    if (user && !isRedirectProcessing) {
-      redirectUser();
+    if (user) {
+      if (!isRedirectProcessing) {
+        redirectUser();
+      }
+    } else {
+      if (!isRedirectProcessing) {
+        document.documentElement.style.visibility = 'visible';
+      }
     }
   });
 

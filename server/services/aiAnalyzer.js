@@ -1172,10 +1172,10 @@ const executeWithRetry = async (requestId, modelName, fetchFunc, validatorFunc) 
       logger.error('AIAnalyzer', `[Req ID: ${requestId}] ❌ Attempt ${attempt + 1}/${maxAttempts} failed. Model: ${currentModel}, Duration: ${duration}ms, HTTP status: ${status || 'N/A'}, Failure reason: ${error.message}`);
       
       attempt++;
-      if (attempt < maxAttempts && !error.isSchemaFailure && !(error instanceof SyntaxError) && isTransientError(error)) {
+      if (attempt < maxAttempts) {
         const nextModel = OPENROUTER_MODELS[(modelIndex + attempt) % OPENROUTER_MODELS.length] || 'openrouter/free';
         const delay = attempt === 1 ? 1000 : 2000;
-        logger.info('AIAnalyzer', `[Req ID: ${requestId}] 🕒 Retrying with model ${nextModel} (Attempt ${attempt + 1}/${maxAttempts}) in ${delay}ms due to transient error...`);
+        logger.info('AIAnalyzer', `[Req ID: ${requestId}] 🕒 Retrying/Failover to model ${nextModel} (Attempt ${attempt + 1}/${maxAttempts}) in ${delay}ms...`);
         await sleep(delay);
       } else {
         logger.error('AIAnalyzer', `[Req ID: ${requestId}] 🛑 Request pipeline terminated. Final result: Failure.`);

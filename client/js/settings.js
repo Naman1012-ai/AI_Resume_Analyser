@@ -95,13 +95,17 @@ document.addEventListener('DOMContentLoaded', () => {
     // Load Profile fields
     const profileNameInput = document.getElementById('profile-name');
     const profileRoleInput = document.getElementById('profile-role');
-    const profilePhotoUrlInput = document.getElementById('profile-photo-url');
     const profilePhotoPreview = document.getElementById('profile-photo-preview');
     const profilePhotoFallback = document.getElementById('profile-photo-fallback');
 
     let displayName = isMockMode ? 'John Doe' : (user ? (user.displayName || '') : '');
     let roleTitle = 'Software Engineer';
-    let avatarUrl = isMockMode ? '' : (user ? (user.photoURL || '') : '');
+
+    const getAvatarUrl = (name) => {
+      const fallbackChar = user?.email?.charAt(0) || 'U';
+      const nameParam = name || fallbackChar;
+      return `https://ui-avatars.com/api/?name=${encodeURIComponent(nameParam)}&background=10b981&color=ffffff&size=128&bold=true`;
+    };
 
     // Attempt to load from cache first
     try {
@@ -116,7 +120,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const parsed = JSON.parse(cached);
         if (parsed.displayName) displayName = parsed.displayName;
         if (parsed.roleTitle) roleTitle = parsed.roleTitle;
-        if (parsed.avatarUrl) avatarUrl = parsed.avatarUrl;
       }
     } catch (e) {
       console.warn('Failed to parse cache in settings:', e);
@@ -138,18 +141,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (profileNameInput) profileNameInput.value = displayName;
     if (profileRoleInput) profileRoleInput.value = roleTitle;
-    if (profilePhotoUrlInput) profilePhotoUrlInput.value = avatarUrl;
 
-    if (avatarUrl) {
-      if (profilePhotoPreview) {
-        profilePhotoPreview.src = avatarUrl;
-        profilePhotoPreview.style.display = 'block';
-      }
-      if (profilePhotoFallback) profilePhotoFallback.style.display = 'none';
-    } else {
-      if (profilePhotoPreview) profilePhotoPreview.style.display = 'none';
-      if (profilePhotoFallback) profilePhotoFallback.style.display = 'flex';
+    const currentAvatarUrl = getAvatarUrl(displayName);
+    if (profilePhotoPreview) {
+      profilePhotoPreview.src = currentAvatarUrl;
+      profilePhotoPreview.style.display = 'block';
     }
+    if (profilePhotoFallback) profilePhotoFallback.style.display = 'none';
 
     // Populate email display under Identity
     const settingsEmailDisplay = document.getElementById('settings-email-display');
@@ -231,7 +229,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const btnSaveProfile = document.getElementById('btn-save-profile');
   const profileNameInput = document.getElementById('profile-name');
   const profileRoleInput = document.getElementById('profile-role');
-  const profilePhotoUrlInput = document.getElementById('profile-photo-url');
   const profilePhotoPreview = document.getElementById('profile-photo-preview');
   const profilePhotoFallback = document.getElementById('profile-photo-fallback');
 
@@ -239,12 +236,10 @@ document.addEventListener('DOMContentLoaded', () => {
     btnSaveProfile.addEventListener('click', async () => {
       const displayName = profileNameInput ? profileNameInput.value.trim() : '';
       const roleTitle = profileRoleInput ? profileRoleInput.value.trim() : '';
-      const photoURL = profilePhotoUrlInput ? profilePhotoUrlInput.value.trim() : '';
 
       const payload = {};
       if (displayName) payload.displayName = displayName;
       if (roleTitle) payload.targetDomain = roleTitle;
-      if (photoURL) payload.avatarUrl = photoURL;
       if (Object.keys(payload).length === 0) return; // nothing to save
 
       btnSaveProfile.disabled = true;
@@ -259,16 +254,14 @@ document.addEventListener('DOMContentLoaded', () => {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000);
 
-      const isValidUrl = (str) => {
-        try {
-          new URL(str);
-          return true;
-        } catch (_) {
-          return false;
-        }
-      };
-
       try {
+        const getAvatarUrl = (name) => {
+          const user = auth.currentUser;
+          const fallbackChar = user?.email?.charAt(0) || 'U';
+          const nameParam = name || fallbackChar;
+          return `https://ui-avatars.com/api/?name=${encodeURIComponent(nameParam)}&background=10b981&color=ffffff&size=128&bold=true`;
+        };
+
         if (isMockMode) {
           await new Promise(resolve => setTimeout(resolve, 500)); // simulate latency
           
@@ -282,24 +275,21 @@ document.addEventListener('DOMContentLoaded', () => {
           }
           
           // Update live preview
-          if (photoURL && isValidUrl(photoURL)) {
-            if (profilePhotoPreview) {
-              profilePhotoPreview.src = photoURL;
-              profilePhotoPreview.style.display = 'block';
-            }
-            if (profilePhotoFallback) profilePhotoFallback.style.display = 'none';
-          } else {
-            if (profilePhotoPreview) profilePhotoPreview.style.display = 'none';
-            if (profilePhotoFallback) profilePhotoFallback.style.display = 'flex';
+          const updatedAvatarUrl = getAvatarUrl(displayName);
+          if (profilePhotoPreview) {
+            profilePhotoPreview.src = updatedAvatarUrl;
+            profilePhotoPreview.style.display = 'block';
           }
+          if (profilePhotoFallback) profilePhotoFallback.style.display = 'none';
 
           // Trigger state sync reactively
-          const cacheObj = { displayName, roleTitle, avatarUrl: photoURL };
+          const cacheObj = { displayName, roleTitle, avatarUrl: updatedAvatarUrl };
           sessionStorage.setItem('profile_cache', JSON.stringify(cacheObj));
           localStorage.setItem('profile_cache', JSON.stringify(cacheObj));
-          if (user) {
-            sessionStorage.setItem(`profile_cache_${user.uid}`, JSON.stringify(cacheObj));
-            localStorage.setItem(`profile_cache_${user.uid}`, JSON.stringify(cacheObj));
+          if (auth.currentUser) {
+            const uid = auth.currentUser.uid;
+            sessionStorage.setItem(`profile_cache_${uid}`, JSON.stringify(cacheObj));
+            localStorage.setItem(`profile_cache_${uid}`, JSON.stringify(cacheObj));
           }
           window.dispatchEvent(new CustomEvent('profile-updated', { detail: cacheObj }));
           return;
@@ -335,21 +325,16 @@ document.addEventListener('DOMContentLoaded', () => {
           }, 3000);
         }
 
-        // Live preview updates
-        const updatedAvatarUrl = resData.avatarUrl !== undefined ? resData.avatarUrl : photoURL;
         const updatedName = resData.displayName !== undefined ? resData.displayName : displayName;
         const updatedDomain = resData.targetDomain !== undefined ? resData.targetDomain : roleTitle;
+        const updatedAvatarUrl = getAvatarUrl(updatedName);
 
-        if (updatedAvatarUrl && isValidUrl(updatedAvatarUrl)) {
-          if (profilePhotoPreview) {
-            profilePhotoPreview.src = updatedAvatarUrl;
-            profilePhotoPreview.style.display = 'block';
-          }
-          if (profilePhotoFallback) profilePhotoFallback.style.display = 'none';
-        } else {
-          if (profilePhotoPreview) profilePhotoPreview.style.display = 'none';
-          if (profilePhotoFallback) profilePhotoFallback.style.display = 'flex';
+        // Live preview updates
+        if (profilePhotoPreview) {
+          profilePhotoPreview.src = updatedAvatarUrl;
+          profilePhotoPreview.style.display = 'block';
         }
+        if (profilePhotoFallback) profilePhotoFallback.style.display = 'none';
 
         // Update inputs to match clean server response
         if (profileNameInput && resData.displayName) {
@@ -357,9 +342,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         if (profileRoleInput && resData.targetDomain) {
           profileRoleInput.value = resData.targetDomain;
-        }
-        if (profilePhotoUrlInput && resData.avatarUrl !== undefined) {
-          profilePhotoUrlInput.value = resData.avatarUrl;
         }
 
         showToast('Profile updated successfully!', 'success');
@@ -381,9 +363,6 @@ document.addEventListener('DOMContentLoaded', () => {
           statusSpan.textContent = errorMsg;
           statusSpan.style.color = 'var(--rose)';
           statusSpan.style.display = 'inline';
-          setTimeout(() => {
-            statusSpan.style.display = 'none';
-          }, 5000);
         }
         showToast(errorMsg, 'error');
       } finally {
@@ -394,20 +373,19 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Dynamic preview update as URL is typed
-  if (profilePhotoUrlInput) {
-    profilePhotoUrlInput.addEventListener('input', () => {
-      const url = profilePhotoUrlInput.value.trim();
-      if (url) {
-        if (profilePhotoPreview) {
-          profilePhotoPreview.src = url;
-          profilePhotoPreview.style.display = 'block';
-        }
-        if (profilePhotoFallback) profilePhotoFallback.style.display = 'none';
-      } else {
-        if (profilePhotoPreview) profilePhotoPreview.style.display = 'none';
-        if (profilePhotoFallback) profilePhotoFallback.style.display = 'flex';
+  // Dynamic preview update as Display Name is typed
+  if (profileNameInput) {
+    profileNameInput.addEventListener('input', () => {
+      const nameVal = profileNameInput.value.trim();
+      const user = auth.currentUser;
+      const fallbackChar = user?.email?.charAt(0) || 'U';
+      const nameParam = nameVal || fallbackChar;
+      const updatedUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(nameParam)}&background=10b981&color=ffffff&size=128&bold=true`;
+      if (profilePhotoPreview) {
+        profilePhotoPreview.src = updatedUrl;
+        profilePhotoPreview.style.display = 'block';
       }
+      if (profilePhotoFallback) profilePhotoFallback.style.display = 'none';
     });
   }
 

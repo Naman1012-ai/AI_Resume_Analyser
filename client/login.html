@@ -16,10 +16,12 @@
       }
     })();
   </script>
-  
-  
-  
-  
+  <style>
+    /* Prevent layout flash before authentication resolves */
+    html {
+      visibility: hidden;
+    }
+  </style>
   <style>
     body {
       display: flex;
