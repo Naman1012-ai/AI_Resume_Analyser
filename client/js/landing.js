@@ -473,7 +473,20 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
       } catch (error) {
-        console.error('Public analysis error:', error);
+        const msg = (error.message || String(error)).toLowerCase();
+        const isCspOrCors = error.status === 0 || 
+                            msg.includes('csp') || 
+                            msg.includes('cors') || 
+                            msg.includes('content security policy') || 
+                            msg.includes('cross-origin') || 
+                            msg.includes('blocked by');
+        
+        if (isCspOrCors) {
+          console.error("Analysis Network Failure: Check CSP Whitelisting or Server Core Bounds.", error);
+        } else {
+          console.error('Public analysis error:', error);
+        }
+        
         progressTracker.cancel();
         showLandingError(mapFriendlyErrorMessage(error));
       } finally {

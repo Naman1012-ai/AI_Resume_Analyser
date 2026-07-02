@@ -35,7 +35,8 @@ app.use(helmet({
         "https://securetoken.googleapis.com", 
         "https://*.firebasedatabase.app", 
         "https://*.firebaseio.com", 
-        "https://*.googleapis.com"
+        "https://*.googleapis.com",
+        "https://www.gstatic.com"
       ],
       frameSrc: ["'self'", "https://*.firebaseapp.com", "https://accounts.google.com"]
     }

@@ -1,6 +1,6 @@
 import { auth, isMockMode } from './firebase-config.js';
 import { FirebaseService } from './api.js';
-import { escapeHTML, formatTimeAgo, showToast, showAnalysisProgress } from './utils.js';
+import { escapeHTML, formatTimeAgo, showToast, showAnalysisProgress, mapFriendlyErrorMessage } from './utils.js';
 
 document.addEventListener('DOMContentLoaded', () => {
   const dropZone = document.getElementById('drop-zone');
@@ -195,9 +195,22 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
       } catch (error) {
-        console.error('Analysis error:', error);
+        const msg = (error.message || String(error)).toLowerCase();
+        const isCspOrCors = error.status === 0 || 
+                            msg.includes('csp') || 
+                            msg.includes('cors') || 
+                            msg.includes('content security policy') || 
+                            msg.includes('cross-origin') || 
+                            msg.includes('blocked by');
+        
+        if (isCspOrCors) {
+          console.error("Analysis Network Failure: Check CSP Whitelisting or Server Core Bounds.", error);
+        } else {
+          console.error('Analysis error:', error);
+        }
+        
         progressTracker.cancel();
-        showToast(error.message || 'Failed to analyze resume.', 'error');
+        showToast(mapFriendlyErrorMessage(error), 'error');
         btnAnalyze.removeAttribute('disabled');
         btnAnalyze.textContent = 'Run Pipeline Analysis';
       } finally {

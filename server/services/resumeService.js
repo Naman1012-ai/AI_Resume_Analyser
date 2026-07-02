@@ -15,6 +15,84 @@ const aiResponseValidator = require('./aiResponseValidator');
 const constants = require('../config/constants');
 const env = require('../config/env');
 const logger = require('../utils/logger');
+const { safeJsonParse } = require('../utils/safeJsonParse');
+
+// Intercept OpenRouter fetch requests to handle invalid JSON response retries
+const originalFetch = global.fetch;
+global.fetch = async function(url, options) {
+  if (url === 'https://openrouter.ai/api/v1/chat/completions' && options && options.method === 'POST') {
+    const bodyObj = JSON.parse(options.body);
+    
+    // Step 4: Token limit guard (prevent truncation by requesting 4000 tokens)
+    bodyObj.max_tokens = 4000;
+    options.body = JSON.stringify(bodyObj);
+
+    const res = await originalFetch(url, options);
+    if (!res.ok) return res;
+
+    const resClone = res.clone();
+    const payload = await resClone.json();
+
+    if (payload.choices && payload.choices.length > 0 && payload.choices[0].message) {
+      const aiResponseText = payload.choices[0].message.content;
+      let parsed = safeJsonParse(aiResponseText);
+
+      if (!parsed) {
+        console.warn('[resumeService] JSON parse failed on first attempt, retrying AI call');
+        console.error('[resumeService] Raw response length:', aiResponseText?.length);
+        console.error('[resumeService] Raw response preview:', aiResponseText?.slice(0, 500));
+
+        const retryBodyObj = {
+          ...bodyObj,
+          messages: [
+            ...bodyObj.messages,
+            {
+              role: 'user',
+              content: 'Your previous response was not valid JSON. ' +
+                       'Return ONLY the raw JSON object with no markdown, ' +
+                       'no code fences, no explanation text before or after. ' +
+                       'Ensure all arrays and objects are properly closed.'
+            }
+          ]
+        };
+
+        const retryOptions = {
+          ...options,
+          body: JSON.stringify(retryBodyObj)
+        };
+
+        const retryRes = await originalFetch(url, retryOptions);
+        if (!retryRes.ok) return retryRes;
+
+        const retryPayload = await retryRes.json();
+        if (retryPayload.choices && retryPayload.choices.length > 0 && retryPayload.choices[0].message) {
+          const retryAiResponseText = retryPayload.choices[0].message.content;
+          parsed = safeJsonParse(retryAiResponseText);
+
+          if (!parsed) {
+            console.error('[resumeService] JSON parse failed after retry. Raw response:', retryAiResponseText?.slice(0, 500));
+            throw new Error('AI_RESPONSE_INVALID');
+          }
+
+          // Override content choice with clean stringified JSON
+          retryPayload.choices[0].message.content = JSON.stringify(parsed);
+          return new Response(JSON.stringify(retryPayload), {
+            status: 200,
+            headers: retryRes.headers
+          });
+        }
+      } else {
+        // First attempt succeeded: clean and overwrite to prevent downstream crashes
+        payload.choices[0].message.content = JSON.stringify(parsed);
+        return new Response(JSON.stringify(payload), {
+          status: 200,
+          headers: res.headers
+        });
+      }
+    }
+  }
+  return originalFetch(url, options);
+};
 
 /**
  * Stage 1-7: Complete resume analysis pipeline.
@@ -95,6 +173,11 @@ async function processResumeAnalysis(userId, file, targetRole) {
     aiAnalysis = await aiAnalyzer.analyzeResumeText(extractedText, targetRole, scoreAnalysis);
   } catch (aiError) {
     logger.error('Pipeline', `AI Analysis failed: ${aiError.message}`);
+    const isInvalid = aiError.message.includes('AI_RESPONSE_INVALID') || 
+                      (aiError.originalError && aiError.originalError.message.includes('AI_RESPONSE_INVALID'));
+    if (isInvalid) {
+      throw new Error('AI_RESPONSE_INVALID');
+    }
     const msg = aiError.originalError ? aiError.originalError.message : aiError.message;
     const userErr = new Error(msg);
     userErr.statusCode = 500;
@@ -112,6 +195,11 @@ async function processResumeAnalysis(userId, file, targetRole) {
     }
   } catch (sgErr) {
     logger.error('Pipeline', `Skill Gap failed: ${sgErr.message}`);
+    const isInvalid = sgErr.message.includes('AI_RESPONSE_INVALID') || 
+                      (sgErr.originalError && sgErr.originalError.message.includes('AI_RESPONSE_INVALID'));
+    if (isInvalid) {
+      throw new Error('AI_RESPONSE_INVALID');
+    }
     const msg = sgErr.originalError ? sgErr.originalError.message : sgErr.message;
     const userErr = new Error(msg);
     userErr.statusCode = 500;
@@ -149,6 +237,11 @@ async function processResumeAnalysis(userId, file, targetRole) {
     );
   } catch (ipErr) {
     logger.error('Pipeline', `Interview Prep failed: ${ipErr.message}`);
+    const isInvalid = ipErr.message.includes('AI_RESPONSE_INVALID') || 
+                      (ipErr.originalError && ipErr.originalError.message.includes('AI_RESPONSE_INVALID'));
+    if (isInvalid) {
+      throw new Error('AI_RESPONSE_INVALID');
+    }
     const msg = ipErr.originalError ? ipErr.originalError.message : ipErr.message;
     const userErr = new Error(msg);
     userErr.statusCode = 500;

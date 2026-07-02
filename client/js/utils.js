@@ -87,6 +87,9 @@ export function mapFriendlyErrorMessage(error) {
   if (!error) return "We couldn't complete your request due to a temporary issue. Please try again.";
   const msg = (error.message || String(error)).toLowerCase();
   
+  if (error.status === 0 || msg.includes('csp') || msg.includes('cors') || msg.includes('content security policy') || msg.includes('cross-origin') || msg.includes('blocked by')) {
+    return "Analysis Network Failure: Check CSP Whitelisting or Server Core Bounds.";
+  }
   if (msg.includes('network') || msg.includes('failed to fetch') || msg.includes('networkerror') || msg.includes('fetch')) {
     return "We couldn't connect to our servers right now. Please check your internet connection and try again.";
   }

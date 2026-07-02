@@ -72,8 +72,18 @@ exports.analyzeResume = async (req, res, next) => {
     });
 
   } catch (error) {
-    logger.error('Pipeline', `Unexpected Pipeline Error: ${error.message}`);
-    next(error);
+    if (error.message === 'AI_RESPONSE_INVALID') {
+      return res.status(503).json({
+        success: false,
+        userMessage: 'Analysis could not be completed. Please try again in a moment.'
+      });
+    }
+    // All other errors
+    console.error('[resumeController] Unexpected error:', error);
+    return res.status(500).json({
+      success: false,
+      userMessage: 'Something went wrong. Please try again.'
+    });
   } finally {
     if (filePathToDelete && fs.existsSync(filePathToDelete)) {
       fs.unlink(filePathToDelete, (err) => {
@@ -142,8 +152,18 @@ exports.analyzePublicResume = async (req, res, next) => {
       createdAt: record.createdAt
     });
   } catch (error) {
-    logger.error('Pipeline', `Public Resume Analysis Pipeline Error: ${error.message}`);
-    next(error);
+    if (error.message === 'AI_RESPONSE_INVALID') {
+      return res.status(503).json({
+        success: false,
+        userMessage: 'Analysis could not be completed. Please try again in a moment.'
+      });
+    }
+    // All other errors
+    console.error('[resumeController] Unexpected error:', error);
+    return res.status(500).json({
+      success: false,
+      userMessage: 'Something went wrong. Please try again.'
+    });
   } finally {
     // Clean up uploaded file from local server disk
     if (filePathToDelete) {
