@@ -152,21 +152,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // If user is already logged in, redirect them to dashboard
   auth.onAuthStateChanged(async (user) => {
-    // Dynamically replace Login links with Dashboard links if authenticated
-    const loginNavLinks = document.querySelectorAll('.btn-login-nav, .mobile-nav-link[href="login.html"], .mobile-nav-link[href^="login.html"]');
-    const mockParam = isMockMode ? '?mock=true' : '';
-    const mockQuery = mockParam ? (mockParam.startsWith('?') ? mockParam : '?' + mockParam) : '';
-
-    if (user || isMockMode) {
-      loginNavLinks.forEach(link => {
-        link.textContent = 'Dashboard';
-        link.href = `dashboard.html${mockQuery}`;
-      });
+    // Update Final CTA buttons based on auth state
+    const ctaGetStarted = document.getElementById('cta-get-started');
+    const ctaSignIn = document.getElementById('cta-sign-in');
+    const mockQuery = isMockMode ? '?mock=true' : '';
+    if (user) {
+      if (ctaGetStarted) ctaGetStarted.href = `upload.html${mockQuery}`;
+      if (ctaSignIn) ctaSignIn.href = `dashboard.html${mockQuery}`;
     } else {
-      loginNavLinks.forEach(link => {
-        link.textContent = 'Login';
-        link.href = `login.html${mockQuery}`;
-      });
+      if (ctaGetStarted) ctaGetStarted.href = `signup.html${mockQuery}`;
+      if (ctaSignIn) ctaSignIn.href = `login.html${mockQuery}`;
     }
 
     if (user) {
@@ -760,7 +755,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Preserve mock param on login/signup links
   if (isMockMode) {
-    document.querySelectorAll('.btn-login-nav, .btn-get-started-nav, .mobile-nav-link').forEach(link => {
+    document.querySelectorAll('.btn-login-nav, .btn-get-started-nav, .mobile-nav-link, #cta-get-started, #cta-sign-in').forEach(link => {
       const href = link.getAttribute('href');
       if (href && href.endsWith('.html')) {
         link.setAttribute('href', href + '?mock=true');

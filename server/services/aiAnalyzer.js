@@ -1707,16 +1707,9 @@ Do not include any preamble, introduction, markdown code block backticks (like \
  * @returns {Promise<string>} - One of the allowed document types.
  */
 const classifyDocument = (resumeText) => {
-  logger.info(`[classifier] Text length: ${resumeText?.length}, preview: ${resumeText?.slice(0, 100)}`);
+  logger.info('AIAnalyzer', `[classifier] Text length: ${resumeText?.length}, preview: ${resumeText?.slice(0, 100)}`);
 
-  if (!resumeText || resumeText.trim().length < 100) {
-    return {
-      documentType: 'unknown',
-      confidence: 0
-    };
-  }
-
-  const text = resumeText.toLowerCase();
+  const text = (resumeText || '').toLowerCase();
   const resumeSignals = [
     'experience', 'education', 'skills', 'resume', 'cv',
     'objective', 'summary', 'employment', 'university',

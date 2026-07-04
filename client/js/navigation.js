@@ -42,7 +42,7 @@ document.addEventListener('DOMContentLoaded', () => {
       <header class="app-header">
         <div class="header-container">
           <div style="display: flex; align-items: center; gap: 0.75rem;">
-            <button class="btn-hamburger" id="btn-hamburger" aria-expanded="false" aria-controls="app-sidebar-nav" aria-label="Toggle side navigation menu">
+            <button class="btn-hamburger" id="btn-hamburger" aria-expanded="false" aria-label="Toggle side navigation menu">
               <span></span>
               <span></span>
               <span></span>

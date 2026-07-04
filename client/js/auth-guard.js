@@ -16,8 +16,11 @@ export function initAuthGuard() {
     }
     
     // Check if email address verification is pending
+    // Google OAuth users are inherently email-verified by Google;
+    // Firebase's emailVerified flag can be unreliable for OAuth providers.
     const adminEmail = window.process?.env?.VITE_ADMIN_EMAIL || 'admin@resumetrices.com';
-    if (user.email !== adminEmail && !user.emailVerified) {
+    const isGoogleUser = user.providerData?.some(p => p.providerId === 'google.com');
+    if (user.email !== adminEmail && !user.emailVerified && !isGoogleUser) {
       window.location.href = `verify-email.html${isMockMode ? '?mock=true' : ''}`;
     } else {
       document.documentElement.style.visibility = 'visible';

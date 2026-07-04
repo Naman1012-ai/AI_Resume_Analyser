@@ -72,16 +72,10 @@ exports.analyzeResume = async (req, res, next) => {
     });
 
   } catch (error) {
-    if (error.code === 'EXTRACTION_FAILED') {
+    if (error.statusCode === 400 || error.code === 'EXTRACTION_FAILED' || error.code === 'INVALID_DOCUMENT_TYPE') {
       return res.status(400).json({
         success: false,
-        userMessage: 'We could not read text from your PDF. It may be a scanned image or a corrupted file. Please try a different PDF.'
-      });
-    }
-    if (error.code === 'INVALID_DOCUMENT_TYPE') {
-      return res.status(400).json({
-        success: false,
-        userMessage: error.message || "This doesn't appear to be a resume. Please upload a resume PDF."
+        userMessage: error.message
       });
     }
     if (error.message === 'AI_DAILY_LIMIT_EXHAUSTED') {
@@ -176,16 +170,10 @@ exports.analyzePublicResume = async (req, res, next) => {
       createdAt: record.createdAt
     });
   } catch (error) {
-    if (error.code === 'EXTRACTION_FAILED') {
+    if (error.statusCode === 400 || error.code === 'EXTRACTION_FAILED' || error.code === 'INVALID_DOCUMENT_TYPE') {
       return res.status(400).json({
         success: false,
-        userMessage: 'We could not read text from your PDF. It may be a scanned image or a corrupted file. Please try a different PDF.'
-      });
-    }
-    if (error.code === 'INVALID_DOCUMENT_TYPE') {
-      return res.status(400).json({
-        success: false,
-        userMessage: error.message || "This doesn't appear to be a resume. Please upload a resume PDF."
+        userMessage: error.message
       });
     }
     if (error.message === 'AI_DAILY_LIMIT_EXHAUSTED') {

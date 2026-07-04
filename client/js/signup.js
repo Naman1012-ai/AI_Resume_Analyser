@@ -6,42 +6,6 @@ import { showToast, getFriendlyAuthErrorMessage, showPersistentNotice } from './
 const googleProvider = new GoogleAuthProvider();
 
 document.addEventListener('DOMContentLoaded', () => {
-  let isRedirectProcessing = true;
-
-  // Handle Google redirect result
-  getRedirectResult(auth).then(async (result) => {
-    if (result && result.user) {
-      const user = result.user;
-      try {
-        const userRef = ref(db, `users/${user.uid}`);
-        const snapshot = await get(userRef);
-        if (!snapshot.exists()) {
-          await set(userRef, {
-            uid: user.uid,
-            email: user.email,
-            displayName: user.displayName || user.email.split('@')[0],
-            createdAt: new Date().toISOString()
-          });
-        }
-      } catch (dbError) {
-        console.error('Database user profile creation failed:', dbError);
-      }
-      showToast('Signed in with Google!');
-      redirectUser();
-    } else {
-      isRedirectProcessing = false;
-      if (auth.currentUser) {
-        redirectUser();
-      } else {
-        document.documentElement.style.visibility = 'visible';
-      }
-    }
-  }).catch((error) => {
-    isRedirectProcessing = false;
-    document.documentElement.style.visibility = 'visible';
-    console.error("OAuth Error Context:", error);
-    showToast(`Google Sign-In Error: ${error.code} - ${error.message}`, 'error');
-  });
 
   const signupForm = document.getElementById('signup-form');
   const emailInput = document.getElementById('auth-email');
@@ -107,17 +71,49 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  // Already logged in?
-  auth.onAuthStateChanged((user) => {
-    if (user) {
-      if (!isRedirectProcessing) {
+  // Start listening for auth state AFTER redirect result is consumed,
+  // preventing the race where onAuthStateChanged fires before the
+  // redirect result resolves and the redirect is permanently lost.
+  function startAuthListener() {
+    auth.onAuthStateChanged((user) => {
+      if (user) {
         redirectUser();
-      }
-    } else {
-      if (!isRedirectProcessing) {
+      } else {
         document.documentElement.style.visibility = 'visible';
       }
+    });
+  }
+
+  // Handle Google redirect result — must resolve BEFORE we register
+  // the onAuthStateChanged listener to avoid the timing race.
+  getRedirectResult(auth).then(async (result) => {
+    if (result && result.user) {
+      const user = result.user;
+      try {
+        const userRef = ref(db, `users/${user.uid}`);
+        const snapshot = await get(userRef);
+        if (!snapshot.exists()) {
+          await set(userRef, {
+            uid: user.uid,
+            email: user.email,
+            displayName: user.displayName || user.email.split('@')[0],
+            createdAt: new Date().toISOString()
+          });
+        }
+      } catch (dbError) {
+        console.error('Database user profile creation failed:', dbError);
+      }
+      showToast('Signed in with Google!');
+      redirectUser();
+    } else {
+      // No redirect result — start listening for existing session
+      startAuthListener();
     }
+  }).catch((error) => {
+    console.error("OAuth Error Context:", error);
+    showToast(`Google Sign-In Error: ${error.code} - ${error.message}`, 'error');
+    // Redirect failed — fall back to auth listener
+    startAuthListener();
   });
 
   // Handle email registration

@@ -34,7 +34,7 @@
         </a>
       </div>
       <div style="display: flex; align-items: center; gap: 1.5rem;">
-        <button class="public-hamburger" id="public-hamburger" aria-expanded="false" aria-controls="mobile-nav-drawer" aria-label="Open navigation menu" style="display: none; background: transparent; border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 0.5rem; cursor: pointer; color: var(--text-main);">
+        <button class="public-hamburger" id="public-hamburger" aria-label="Open navigation menu" style="display: none; background: transparent; border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 0.5rem; cursor: pointer; color: var(--text-main);">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
         </button>
         <nav class="public-nav" id="public-nav" style="display: flex; gap: 1.25rem; align-items: center; margin-right: 1rem;">
@@ -48,25 +48,6 @@
       </div>
     </div>
   </header>
-
-  <!-- Mobile Navigation Drawer -->
-  <div id="mobile-nav-drawer" class="mobile-nav-drawer" role="dialog" aria-modal="true" aria-label="Mobile Navigation Menu">
-    <div>
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
-        <span style="font-size: 1.1rem; font-weight: 700; color: var(--text-main);">Menu</span>
-        <button id="mobile-nav-close" aria-label="Close navigation menu" style="background: transparent; border: none; color: var(--text-muted); cursor: pointer; padding: 0.25rem;">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-        </button>
-      </div>
-      <a href="#" class="mobile-nav-link" style="padding: 0.85rem 1rem; border-radius: var(--radius-md, 8px); color: var(--text-main, #e2e8f0); font-weight: 600; font-size: 0.95rem; text-decoration: none; transition: background 200ms;">Home</a>
-      <a href="#features" class="mobile-nav-link" style="padding: 0.85rem 1rem; border-radius: var(--radius-md, 8px); color: var(--text-main, #e2e8f0); font-weight: 600; font-size: 0.95rem; text-decoration: none; transition: background 200ms;">Features</a>
-      <a href="#how-it-works" class="mobile-nav-link" style="padding: 0.85rem 1rem; border-radius: var(--radius-md, 8px); color: var(--text-main, #e2e8f0); font-weight: 600; font-size: 0.95rem; text-decoration: none; transition: background 200ms;">How It Works</a>
-      <a href="#faq" class="mobile-nav-link" style="padding: 0.85rem 1rem; border-radius: var(--radius-md, 8px); color: var(--text-main, #e2e8f0); font-weight: 600; font-size: 0.95rem; text-decoration: none; transition: background 200ms;">FAQ</a>
-      <div style="border-top: 1px solid var(--border-color, #1e293b); margin: 1rem 0;"></div>
-      <a href="login.html" class="mobile-nav-link">Login</a>
-      <a href="signup.html" class="mobile-nav-link btn-get-started-nav" style="padding: 0.85rem 1rem; border-radius: var(--radius-md, 8px); background: var(--grad-primary, linear-gradient(135deg, #10b981, #059669)); color: #fff; font-weight: 700; font-size: 0.95rem; text-decoration: none; text-align: center; margin-top: 0.5rem;">Get Started</a>
-    </div>
-  </div>
 
   <main class="main-content">
     <div id="landing-container" class="landing-container">
@@ -203,7 +184,7 @@
       <!-- PRODUCT STATISTICS -->
       <section class="landing-stats" id="product-statistics">
         <h2 class="section-title">Verified Platform Statistics</h2>
-        <p class="section-subtitle">Real-time statistics fetched directly from Firebase. Never fake.</p>
+        <p class="section-subtitle">Real-time statistics fetched directly from the database. Never fake.</p>
         <div class="stats-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem; max-width: 1100px; margin: 0 auto;">
           <div class="stat-card">
             <div class="stat-number" id="stat-total-analyses">0</div>
@@ -228,6 +209,24 @@
           <div class="stat-card">
             <div class="stat-number" id="stat-questions">0</div>
             <div class="stat-label">Questions Generated</div>
+          </div>
+        </div>
+      </section>
+      
+      <!-- FINAL CTA -->
+      <section class="landing-final-cta" id="final-cta">
+        <div class="final-cta-card">
+          <div class="final-cta-icon" aria-hidden="true">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+              <polyline points="22 4 12 14.01 9 11.01"></polyline>
+            </svg>
+          </div>
+          <h2 class="final-cta-headline">Ready to Build a Resume That Gets Interviews?</h2>
+          <p class="final-cta-subheading">Upload your resume, receive an AI-powered ATS analysis, discover skill gaps, generate interview preparation, and build your personalized learning roadmap—all in one place.</p>
+          <div class="final-cta-buttons">
+            <a href="signup.html" class="btn-cta-primary" id="cta-get-started" role="button">Get Started</a>
+            <a href="login.html" class="btn-cta-secondary" id="cta-sign-in" role="button">Sign In</a>
           </div>
         </div>
       </section>
@@ -325,7 +324,6 @@
               <li><a href="about.html">About</a></li>
               <li><a href="mailto:support.resumetrices@gmail.com">Contact</a></li>
               <li><a href="faq.html">FAQ</a></li>
-              <li><a href="#" class="disabled-link">Release Notes</a></li>
             </ul>
           </div>
           
@@ -334,7 +332,6 @@
             <ul>
               <li><a href="privacy.html">Privacy Policy</a></li>
               <li><a href="terms.html">Terms of Service</a></li>
-              <li><a href="#" class="disabled-link">Cookie Policy</a></li>
               <li><a href="security.html">Data Security</a></li>
             </ul>
           </div>
@@ -498,63 +495,21 @@
   <script type="module" src="js/landing.js"></script>
   <script>
     // Mobile Navigation Drawer Toggle
-    (function() {
+    document.addEventListener('DOMContentLoaded', () => {
       const hamburger = document.getElementById('public-hamburger');
       const drawer = document.getElementById('mobile-nav-drawer');
       const closeBtn = document.getElementById('mobile-nav-close');
-
-      function openDrawer() {
-        if (!drawer) return;
-        drawer.classList.add('active');
-        document.body.style.overflow = 'hidden';
-        if (hamburger) hamburger.setAttribute('aria-expanded', 'true');
-        if (closeBtn) closeBtn.focus();
-      }
-
-      function closeDrawer() {
-        if (!drawer) return;
-        drawer.classList.remove('active');
-        document.body.style.overflow = '';
-        if (hamburger) {
-          hamburger.setAttribute('aria-expanded', 'false');
-          hamburger.focus();
-        }
-      }
-
       if (hamburger && drawer) {
-        hamburger.addEventListener('click', (e) => {
-          e.stopPropagation();
-          openDrawer();
-        });
-      }
-
-      if (closeBtn) {
-        closeBtn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          closeDrawer();
-        });
-      }
-
-      if (drawer) {
-        drawer.addEventListener('click', (e) => {
-          if (e.target === drawer) {
-            closeDrawer();
-          }
-        });
-
+        hamburger.addEventListener('click', () => { drawer.style.display = 'block'; });
+        if (closeBtn) closeBtn.addEventListener('click', () => { drawer.style.display = 'none'; });
+        // Close drawer when clicking overlay background
+        drawer.addEventListener('click', (e) => { if (e.target === drawer) drawer.style.display = 'none'; });
+        // Close drawer when clicking any nav link
         drawer.querySelectorAll('.mobile-nav-link').forEach(link => {
-          link.addEventListener('click', () => {
-            closeDrawer();
-          });
+          link.addEventListener('click', () => { drawer.style.display = 'none'; });
         });
       }
-
-      document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape' && drawer && drawer.classList.contains('active')) {
-          closeDrawer();
-        }
-      });
-    })();
+    });
   </script>
   <script type="module" src="js/footer.js"></script>
 </body>
