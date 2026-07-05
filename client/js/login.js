@@ -1,5 +1,5 @@
 import { auth, db, isMockMode } from './firebase-config.js';
-import { signInWithEmailAndPassword, signInWithRedirect, getRedirectResult, GoogleAuthProvider, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+import { signInWithEmailAndPassword, GoogleAuthProvider, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 import { ref, get, set } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 import { showToast, getFriendlyAuthErrorMessage, showPersistentNotice } from './utils.js';
 
@@ -72,9 +72,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  // Start listening for auth state AFTER redirect result is consumed,
-  // preventing the race where onAuthStateChanged fires before the
-  // redirect result resolves and the redirect is permanently lost.
+  // Start listening for auth state unconditionally on load
   function startAuthListener() {
     auth.onAuthStateChanged((user) => {
       if (user) {
@@ -85,37 +83,8 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Handle Google redirect result — must resolve BEFORE we register
-  // the onAuthStateChanged listener to avoid the timing race.
-  getRedirectResult(auth).then(async (result) => {
-    if (result && result.user) {
-      const user = result.user;
-      try {
-        const userRef = ref(db, `users/${user.uid}`);
-        const snapshot = await get(userRef);
-        if (!snapshot.exists()) {
-          await set(userRef, {
-            uid: user.uid,
-            email: user.email,
-            displayName: user.displayName || user.email.split('@')[0],
-            createdAt: new Date().toISOString()
-          });
-        }
-      } catch (dbError) {
-        console.error('Database user profile creation failed:', dbError);
-      }
-      showToast('Signed in with Google!');
-      redirectUser();
-    } else {
-      // No redirect result — start listening for existing session
-      startAuthListener();
-    }
-  }).catch((error) => {
-    console.error("OAuth Error Context:", error);
-    showToast(`Google Sign-In Error: ${error.code} - ${error.message}`, 'error');
-    // Redirect failed — fall back to auth listener
-    startAuthListener();
-  });
+  // Start listening for existing session immediately
+  startAuthListener();
 
   // Handle email login
   loginForm.addEventListener('submit', async (e) => {
@@ -166,23 +135,43 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // Handle Google OAuth
+  // Handle Google OAuth via Popup
   btnGoogle.addEventListener('click', async () => {
     btnGoogle.setAttribute('disabled', 'true');
     btnGoogle.textContent = 'Signing In...';
-
     try {
       if (isMockMode) {
         showToast('Signed in with Google (Mock Mode)!');
         setTimeout(redirectUser, 500);
         return;
       }
-
-      await signInWithRedirect(auth, googleProvider);
-      return; // Redirect will handle the rest
+      const { signInWithPopup } = await import(
+        "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js"
+      );
+      const result = await signInWithPopup(auth, googleProvider);
+      const user = result.user;
+      try {
+        const userRef = ref(db, `users/${user.uid}`);
+        const snapshot = await get(userRef);
+        if (!snapshot.exists()) {
+          await set(userRef, {
+            uid: user.uid,
+            email: user.email,
+            displayName: user.displayName || user.email.split('@')[0],
+            createdAt: new Date().toISOString()
+          });
+        }
+      } catch (dbError) {
+        console.error('Profile creation failed:', dbError);
+        // non-fatal — continue to redirect
+      }
+      redirectUser();
     } catch (error) {
-      console.error("OAuth Error Context:", error);
-      showToast(`Google Sign-In Error: ${error.code} - ${error.message}`, 'error');
+      console.error('Google Sign-In error:', error);
+      const msg = error.code === 'auth/popup-blocked'
+        ? 'Popup was blocked. Please allow popups for this site and try again.'
+        : 'Google Sign-In failed. Please try again.';
+      showToast(msg, 'error');
       btnGoogle.removeAttribute('disabled');
       btnGoogle.innerHTML = `
         <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">

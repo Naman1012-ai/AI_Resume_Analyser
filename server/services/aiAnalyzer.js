@@ -11,6 +11,9 @@ const groundingValidator = require('./groundingValidator');
 const aiResponseValidator = require('./aiResponseValidator');
 
 const { OPENROUTER } = constants;
+logger.info(`[aiAnalyzer] Timeout config:
+  primary=${OPENROUTER.PRIMARY_TIMEOUT_MS}
+  fallback=${OPENROUTER.FALLBACK_TIMEOUT_MS}`);
 
 /**
  * Helper to pause execution for a given number of milliseconds.
@@ -1145,13 +1148,20 @@ const extractHttpStatus = (error) => {
  * Handles 404, 429, 400, 401, 502, 503 with differentiated logic.
  * Returns parsed JSON object if successful, or throws a user-friendly error on final failure.
  */
-const executeWithRetry = async (requestId, modelName, fetchFunc, validatorFunc) => {
+const executeWithRetry = async (
+  requestId,
+  modelName,
+  fetchFunc,
+  validatorFunc,
+  primaryTimeoutMs = OPENROUTER.PRIMARY_TIMEOUT_MS,
+  fallbackTimeoutMs = OPENROUTER.FALLBACK_TIMEOUT_MS
+) => {
   const maxAttempts = OPENROUTER_MODELS.length;
   const failureRecords = []; // Track {model, status} for post-loop analysis
   
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     const currentModel = OPENROUTER_MODELS[attempt] || OPENROUTER_MODELS[0];
-    const timeoutMs = attempt === 0 ? OPENROUTER.PRIMARY_TIMEOUT_MS : OPENROUTER.FALLBACK_TIMEOUT_MS;
+    const timeoutMs = attempt === 0 ? primaryTimeoutMs : fallbackTimeoutMs;
     const runStartTime = Date.now();
     try {
       logger.info('AIAnalyzer', `[aiAnalyzer] Attempting model: ${currentModel} (attempt ${attempt + 1}/${maxAttempts})`);
@@ -1161,7 +1171,9 @@ const executeWithRetry = async (requestId, modelName, fetchFunc, validatorFunc) 
         throw new Error('Received empty response from AI provider.');
       }
       
-      const parsed = JSON.parse(cleanJsonString(resultString));
+      const cleaned = cleanJsonString(resultString);
+      const sanitised = cleaned.replace(/,\s*([}\]])/g, '$1');
+      const parsed = JSON.parse(sanitised);
       
       if (!validatorFunc(parsed)) {
         const schemaErr = new Error('AI response failed schema, required fields, or type validation.');
@@ -1411,7 +1423,7 @@ The JSON response must conform exactly to this schema:
   };
 
   try {
-    return await executeWithRetry(requestId, OPENROUTER.MODEL_ID, fetchFunc, validatorFunc);
+    return await executeWithRetry(requestId, OPENROUTER.MODEL_ID, fetchFunc, validatorFunc, 25000, 20000);
   } catch (error) {
     if (apiKey) {
       throw error;
@@ -1533,7 +1545,7 @@ Do not include any preamble, introduction, markdown code block backticks (like \
   };
 
   try {
-    return await executeWithRetry(requestId, OPENROUTER.MODEL_ID, fetchFunc, validatorFunc);
+    return await executeWithRetry(requestId, OPENROUTER.MODEL_ID, fetchFunc, validatorFunc, 20000, 20000);
   } catch (error) {
     if (apiKey) {
       throw error;
@@ -1690,7 +1702,7 @@ Do not include any preamble, introduction, markdown code block backticks (like \
   };
 
   try {
-    return await executeWithRetry(requestId, OPENROUTER.MODEL_ID, fetchFunc, validatorFunc);
+    return await executeWithRetry(requestId, OPENROUTER.MODEL_ID, fetchFunc, validatorFunc, 20000, 20000);
   } catch (error) {
     if (apiKey) {
       throw error;

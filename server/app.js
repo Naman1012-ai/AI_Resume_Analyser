@@ -29,7 +29,8 @@ app.use(helmet({
         "'self'",
         "https://www.gstatic.com",
         "https://apis.google.com",
-        "https://cdnjs.cloudflare.com"
+        "https://cdnjs.cloudflare.com",
+        "https://accounts.google.com"
       ],
       styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
       fontSrc: ["'self'", "https://fonts.gstatic.com"],
@@ -39,7 +40,10 @@ app.use(helmet({
         "https://*.firebasedatabase.app",
         "https://identitytoolkit.googleapis.com",
         "https://securetoken.googleapis.com",
-        "https://openrouter.ai"
+        "https://openrouter.ai",
+        "https://accounts.google.com",
+        "https://oauth2.googleapis.com",
+        "https://openidconnect.googleapis.com"
       ],
       imgSrc: [
         "'self'",
@@ -47,7 +51,7 @@ app.use(helmet({
         "https://ui-avatars.com",
         "https://*.googleusercontent.com"
       ],
-      frameSrc: ["'self'", "https://*.firebaseapp.com"],
+      frameSrc: ["'self'", "https://*.firebaseapp.com", "https://accounts.google.com"],
       objectSrc: ["'none'"]
     }
   }
